@@ -108,10 +108,10 @@ export function HeroSection() {
                         <span className="text-4xl font-bold tracking-widest text-foreground">SHURSUNT</span>
                     </div>
                     <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-foreground px-4 tracking-tight leading-tight mb-2">
-                        The Future of Crypto
+                        AI Crypto Analytics &
                     </h1>
                     <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-foreground px-4 tracking-tight leading-tight mb-8">
-                        Analytics. <span className="text-blue-500 animate-pulse">|</span>
+                        Trading Signals. <span className="text-blue-500 animate-pulse">|</span>
                     </h1>
 
                     <p className="text-lg sm:text-xl md:text-2xl text-zinc-400 max-w-3xl mx-auto leading-relaxed mt-4 font-medium">
@@ -132,8 +132,8 @@ export function HeroSection() {
                         className="relative z-50"
                     >
                         <Link href="/login">
-                            <button className="bg-black text-white dark:bg-[#1a1f2e] border border-transparent dark:border-blue-500/30 hover:bg-zinc-800 dark:hover:bg-[#23293b] flex items-center gap-3 px-8 py-3 rounded-full text-sm font-bold backdrop-blur-md transition-all duration-300">
-                                <Zap className="w-4 h-4 text-white dark:text-blue-500 fill-current" />
+                            <button className="bg-primary text-primary-foreground hover:bg-primary/90 border border-primary/20 flex items-center gap-3 px-8 py-3 rounded-full text-sm font-bold shadow-[0_0_20px_hsl(var(--primary)/0.3)] hover:shadow-[0_0_30px_hsl(var(--primary)/0.5)] hover:scale-105 transition-all duration-300">
+                                <Zap className="w-4 h-4 text-primary-foreground fill-current" />
                                 <span>Start Trading</span>
                             </button>
                         </Link>

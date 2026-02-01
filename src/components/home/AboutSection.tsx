@@ -13,7 +13,7 @@ export const AboutSection = () => {
             <div className="container mx-auto px-6 relative z-10">
                 <div className="max-w-5xl mx-auto">
                     <SpotlightCard
-                        className="p-8 md:p-12 border-primary/20 bg-white/80 dark:bg-black/40 backdrop-blur-xl shadow-2xl"
+                        className="p-8 md:p-12 border-primary/20 bg-card/80 backdrop-blur-xl shadow-2xl"
                         spotlightColor="hsl(var(--primary) / 0.2)"
                         fillColor="hsl(var(--primary) / 0.05)"
                     >
@@ -73,7 +73,7 @@ export const AboutSection = () => {
                                         whileInView={{ opacity: 1, x: 0 }}
                                         viewport={{ once: true }}
                                         transition={{ delay: 0.2 + (i * 0.1) }}
-                                        className="group p-4 rounded-xl bg-gray-50 border border-gray-200 dark:bg-white/5 dark:border-white/5 hover:bg-gray-100 hover:border-primary/20 dark:hover:bg-white/10 dark:hover:border-primary/20 transition-all cursor-default"
+                                        className="group p-4 rounded-xl bg-muted/50 border border-border hover:bg-muted hover:border-primary/30 transition-all cursor-default"
                                     >
                                         <div className="flex gap-4">
                                             <div className="mt-1 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">

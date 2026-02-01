@@ -15,6 +15,7 @@ import { notFound } from 'next/navigation';
 import { routing } from '@/i18n/routing';
 import { GlobalErrorSuppressor } from "@/components/ui/GlobalErrorSuppressor";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
+import JsonLd from '@/components/seo/JsonLd';
 
 const outfit = Outfit({
     subsets: ['latin'],
@@ -22,12 +23,48 @@ const outfit = Outfit({
 })
 
 export const metadata: Metadata = {
-    // ... Metadata (can keep or adjust locale dynamically)
     title: {
-        default: 'ShursunT AI | Advanced Crypto Analytics',
+        default: 'ShursunT AI | Advanced Crypto Analytics & Trading Signals',
         template: '%s | ShursunT AI'
     },
-    description: 'Maximize your crypto trading ROI with ShursunT AI.',
+    description: 'Maximize your crypto trading ROI with ShursunT AI. Real-time price predictions, market sentiment analysis, and 90% accurate AI trading indicators for Bitcoin, Ethereum, and Solana.',
+    keywords: ['AI crypto signals', 'crypto price prediction', 'trading indicators', 'crypto analytics', 'bitcoin prediction', 'ethereum sentiment', 'AI trading bot'],
+    authors: [{ name: 'ShursunT Team', url: 'https://shursunt.com' }],
+    creator: 'ShursunT Inc.',
+    openGraph: {
+        type: 'website',
+        locale: 'en_US',
+        url: 'https://shursunt.com',
+        title: 'ShursunT AI | Advanced Crypto Analytics & Trading Signals',
+        description: 'Maximize your crypto trading ROI with ShursunT AI. Real-time price predictions, market sentiment analysis, and 90% accurate AI trading indicators.',
+        siteName: 'ShursunT AI',
+        images: [
+            {
+                url: 'https://shursunt.com/og-image.png',
+                width: 1200,
+                height: 630,
+                alt: 'ShursunT AI Dashboard',
+            },
+        ],
+    },
+    twitter: {
+        card: 'summary_large_image',
+        title: 'ShursunT AI | Advanced Crypto Analytics & Trading Signals',
+        description: 'Maximize your crypto trading ROI with ShursunT AI. Real-time price predictions and market sentiment analysis.',
+        images: ['https://shursunt.com/twitter-image.png'],
+        creator: '@shursunt_ai',
+    },
+    robots: {
+        index: true,
+        follow: true,
+        googleBot: {
+            index: true,
+            follow: true,
+            'max-video-preview': -1,
+            'max-image-preview': 'large',
+            'max-snippet': -1,
+        },
+    },
 }
 
 export function generateStaticParams() {
@@ -63,6 +100,7 @@ export default async function LocaleLayout({
                 <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
             </head>
             <body className={`${outfit.className} antialiased`} suppressHydrationWarning>
+                <JsonLd />
                 <NextIntlClientProvider messages={messages}>
                     <NextTopLoader
                         color="hsl(var(--primary))"

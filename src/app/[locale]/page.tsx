@@ -70,7 +70,7 @@ export default function Home() {
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[500px] h-[200px] bg-primary/5 rounded-full blur-[100px]" />
         </div>
 
-        <div className="container mx-auto px-6 flex flex-col items-center justify-center gap-6 relative z-10">
+        <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-center md:justify-around gap-6 relative z-10">
           <motion.div
             className="flex items-center gap-2"
             whileHover={{ scale: 1.05 }}
@@ -95,7 +95,7 @@ function FooterShineText({ text }: { text: string }) {
       <motion.span
         className="font-bold tracking-widest text-lg bg-clip-text text-transparent"
         style={{
-          backgroundImage: "linear-gradient(110deg, var(--foreground) 35%, var(--primary) 50%, var(--foreground) 65%)",
+          backgroundImage: "linear-gradient(110deg, hsl(var(--foreground)) 35%, hsl(var(--primary)) 50%, hsl(var(--foreground)) 65%)",
           backgroundSize: "200% 100%",
         }}
         animate={{

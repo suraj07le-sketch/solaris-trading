@@ -261,22 +261,8 @@ async function updateDatabase(stocks: any[], cryptos: any[]) {
     }
 
     // Upsert Crypto
-    // Note: Our crypto_coins table might have different schema, let's adapt or just use what we have.
-    // We'll trust the component handles mapping if we stick to the core fields.
-    // For now, let's assume we might need to clear and re-insert or upsert by symbol.
-    // Since 'id' is UUID in DB, but we get 'bitcoin' as slug. We might need to match by symbol or just insert.
-    // Let's rely on 'id' being the slug if possible, or UUID.
-    // If the table uses UUID, upserting by 'id' string 'bitcoin' might fail if it sends text to uuid.
-    // We will attempt to lookup by symbol or just use 'symbol' as key if unique.
-
-    // Actually, 'crypto_coins' table definition from setup script isn't fully visible here, 
-    // but usually it mimics stocks. Let's try upserting by `symbol` if constraint exists, or just log.
-    // For safety in this "Task", I'll skip complex crypto upsert logic if schema is unknown 
-    // and focus on Stocks which was the user's main complaint (Reliance).
-
-    // BUT user asked for "actual data real world". 
-    // I will try to upsert crypto by symbol.
     if (cryptos.length > 0) {
+        // Attempt upsert. Note: If this fails with "column not found", ensure the fix_crypto_schema.sql was run.
         const { error } = await supabase
             .from('crypto_coins')
             .upsert(
@@ -286,21 +272,25 @@ async function updateDatabase(stocks: any[], cryptos: any[]) {
                     name: c.name,
                     image: c.image,
                     current_price: c.current_price,
-                    price_usd: c.current_price, // Support legacy price_usd column
+                    price_usd: c.current_price,
                     price_change_percentage_24h: c.price_change_percentage_24h,
-                    change_24h: c.price_change_percentage_24h, // Support legacy change_24h column
+                    change_24h: c.price_change_percentage_24h,
                     market_cap: c.market_cap,
-                    market_cap_usd: c.market_cap, // Support legacy market_cap_usd column
+                    market_cap_usd: c.market_cap,
                     market_cap_rank: c.market_cap_rank,
                     rank: c.market_cap_rank,
                     high_24h: c.high_24h,
                     low_24h: c.low_24h,
                     volume: c.volume,
-                    volume_24h: c.volume, // Support legacy volume_24h column
+                    volume_24h: c.volume,
                     updated_at: new Date().toISOString()
                 })),
                 { onConflict: 'id' }
             );
-        if (error) console.error("Crypto Upsert Error:", error);
+
+        if (error) {
+            console.error("Crypto Upsert Error:", error);
+            console.info("TIP: If you see 'column not found' errors, please run the SQL migration script: src/supabase/fix_crypto_schema.sql");
+        }
     }
 }

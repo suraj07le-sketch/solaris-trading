@@ -22,38 +22,41 @@ const outfit = Outfit({
     variable: '--font-outfit',
 })
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://shursunt.com';
+
 export const metadata: Metadata = {
     title: {
-        default: 'ShursunT AI | Advanced Crypto Analytics & Trading Signals',
+        default: 'ShursunT AI | Advanced Crypto Analytics & 90% Accurate Trading Signals',
         template: '%s | ShursunT AI'
     },
-    description: 'Maximize your crypto trading ROI with ShursunT AI. Real-time price predictions, market sentiment analysis, and 90% accurate AI trading indicators for Bitcoin, Ethereum, and Solana.',
-    keywords: ['AI crypto signals', 'crypto price prediction', 'trading indicators', 'crypto analytics', 'bitcoin prediction', 'ethereum sentiment', 'AI trading bot'],
-    authors: [{ name: 'ShursunT Team', url: 'https://shursunt.com' }],
-    creator: 'ShursunT Inc.',
+    description: 'Maximize your ROI with ShursunT AI. Institutional-grade price predictions, real-time crypto signals, and advanced market sentiment for Bitcoin, Ethereum, and Nifty 50. Quantitative trading for everyone.',
+    keywords: ['AI trading signals', 'crypto price prediction', 'stock market AI', 'quantitative trading insights', 'bitcoin technical analysis', 'nifty 50 ai prediction'],
+    authors: [{ name: 'ShursunT Quant Team', url: BASE_URL }],
+    creator: 'ShursunT AI Inc.',
     openGraph: {
         type: 'website',
         locale: 'en_US',
-        url: 'https://shursunt.com',
-        title: 'ShursunT AI | Advanced Crypto Analytics & Trading Signals',
-        description: 'Maximize your crypto trading ROI with ShursunT AI. Real-time price predictions, market sentiment analysis, and 90% accurate AI trading indicators.',
+        url: BASE_URL,
+        title: 'ShursunT AI | Quant-Grade Crypto Analytics & Trading Signals',
+        description: 'Get an unfair advantage in the markets with institutional-grade AI analytics. 90% accuracy in trend detection for Crypto & Stocks.',
         siteName: 'ShursunT AI',
         images: [
             {
-                url: 'https://shursunt.com/og-image.png',
+                url: `${BASE_URL}/og-image.png`,
                 width: 1200,
                 height: 630,
-                alt: 'ShursunT AI Dashboard',
+                alt: 'ShursunT AI Trading Interface',
             },
         ],
     },
     twitter: {
         card: 'summary_large_image',
-        title: 'ShursunT AI | Advanced Crypto Analytics & Trading Signals',
-        description: 'Maximize your crypto trading ROI with ShursunT AI. Real-time price predictions and market sentiment analysis.',
-        images: ['https://shursunt.com/twitter-image.png'],
+        title: 'ShursunT AI | Quant-Grade Crypto Analytics & Trading Signals',
+        description: 'Master the markets with ShursunT AI. Real-time predictions and high-conviction signals.',
+        images: [`${BASE_URL}/twitter-image.png`],
         creator: '@shursunt_ai',
     },
+    metadataBase: new URL(BASE_URL),
     robots: {
         index: true,
         follow: true,

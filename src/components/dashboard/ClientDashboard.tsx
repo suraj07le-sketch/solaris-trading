@@ -341,7 +341,7 @@ export default function ClientDashboard({ initialData }: { initialData: Coin[] }
                                         <div className="text-right">
                                             <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Target</div>
                                             <div className={`font-mono text-xl font-bold ${isBullish ? 'text-green-500' : 'text-red-500'}`}>
-                                                {pred.predictedPrice || pred.predicted_price}
+                                                {Number(pred.predictedPrice || pred.predicted_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
                                             </div>
                                         </div>
                                     </motion.div>
@@ -408,7 +408,7 @@ export default function ClientDashboard({ initialData }: { initialData: Coin[] }
                                         </div>
                                         <div className="text-right">
                                             <div className="font-mono font-bold text-foreground">
-                                                {item.asset_type === 'stock' ? '₹' : '$'}{Number(price || 0).toLocaleString()}
+                                                {item.asset_type === 'stock' ? '₹' : '$'}{Number(price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
                                             </div>
                                             <div className={`text-xs font-bold px-2 py-0.5 rounded-md inline-block mt-1 ${isPositive ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
                                                 {isPositive ? '+' : ''}{change.toFixed(2)}%

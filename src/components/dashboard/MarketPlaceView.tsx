@@ -28,9 +28,17 @@ export default function MarketPlaceView({ initialStocks, initialCrypto }: Market
 
     // Background Refreshing with SWR (Hits live Sync API)
     const { data: stockData } = useSWR('market-stocks-live', async () => {
-        const res = await fetch('/api/sync');
-        const json = await res.json();
-        return json.success ? json.data.stocks : initialStocks;
+        try {
+            const res = await fetch('/api/sync');
+            const json = await res.json();
+            // Only use sync data if it's successful and has actual entries
+            if (json.success && json.data.stocks?.length > 0) {
+                return json.data.stocks;
+            }
+        } catch (e) {
+            console.warn("Live stock sync failed, falling back to initial data");
+        }
+        return initialStocks;
     }, {
         fallbackData: initialStocks,
         refreshInterval: 60000,
@@ -41,9 +49,17 @@ export default function MarketPlaceView({ initialStocks, initialCrypto }: Market
     });
 
     const { data: cryptoData } = useSWR('market-crypto-live', async () => {
-        const res = await fetch('/api/sync');
-        const json = await res.json();
-        return json.success ? json.data.cryptos : initialCrypto;
+        try {
+            const res = await fetch('/api/sync');
+            const json = await res.json();
+            // Only use sync data if it's successful and has actual entries
+            if (json.success && json.data.cryptos?.length > 0) {
+                return json.data.cryptos;
+            }
+        } catch (e) {
+            console.warn("Live crypto sync failed, falling back to initial data");
+        }
+        return initialCrypto;
     }, {
         fallbackData: initialCrypto,
         refreshInterval: 60000,

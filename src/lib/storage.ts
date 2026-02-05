@@ -50,5 +50,74 @@ export const LocalStorage = {
         } catch (error) {
             console.error("LocalStorage Delete Error:", error);
         }
+    },
+
+    savePredictionCache: (userId: string, date: string, tab: string, data: any[]): void => {
+        if (typeof window === 'undefined') return;
+        try {
+            const key = `pred_cache_${userId}_${date}_${tab}`;
+            const cacheItem = {
+                data,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(key, JSON.stringify(cacheItem));
+        } catch (error) {
+            console.error("Cache Save Error:", error);
+        }
+    },
+
+    getPredictionCache: (userId: string, date: string, tab: string): any[] | null => {
+        if (typeof window === 'undefined') return null;
+        try {
+            const key = `pred_cache_${userId}_${date}_${tab}`;
+            const raw = localStorage.getItem(key);
+            if (!raw) return null;
+
+            const cacheItem = JSON.parse(raw);
+            const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+
+            if (Date.now() - cacheItem.timestamp > TWO_DAYS_MS) {
+                localStorage.removeItem(key);
+                return null;
+            }
+
+            return cacheItem.data;
+        } catch (error) {
+            console.error("Cache Read Error:", error);
+            return null;
+        }
+    },
+
+    // --- SYNC QUEUE LOGIC FOR 100/100 QA ---
+    queueForSync: (userId: string, prediction: any): void => {
+        if (typeof window === 'undefined') return;
+        try {
+            const key = `sync_queue_${userId}`;
+            const currentRaw = localStorage.getItem(key);
+            const current = currentRaw ? JSON.parse(currentRaw) : [];
+
+            // Add to queue if not already there (id check)
+            if (!current.some((p: any) => p.id === prediction.id)) {
+                localStorage.setItem(key, JSON.stringify([...current, prediction]));
+            }
+        } catch (error) {
+            console.error("Sync Queue Error:", error);
+        }
+    },
+
+    getSyncQueue: (userId: string): any[] => {
+        if (typeof window === 'undefined') return [];
+        try {
+            const key = `sync_queue_${userId}`;
+            const raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : [];
+        } catch (error) {
+            return [];
+        }
+    },
+
+    clearSyncQueue: (userId: string): void => {
+        if (typeof window === 'undefined') return;
+        localStorage.removeItem(`sync_queue_${userId}`);
     }
 };

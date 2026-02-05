@@ -132,7 +132,34 @@ export default function IPOPage() {
                     ))}
                 </div>
             ) : (
-                <IPOList data={ipoData} />
+                <>
+                    <IPOList data={ipoData} />
+
+                    {/* SEO Content Section */}
+                    <section className="mt-32 grid grid-cols-1 md:grid-cols-2 gap-16 border-t border-white/5 pt-20">
+                        <div>
+                            <h2 className="text-3xl font-black text-white mb-6 tracking-tight">Understanding IPO GMP & Listing Potential</h2>
+                            <div className="space-y-4 text-muted-foreground leading-relaxed">
+                                <p>
+                                    Grey Market Premium (GMP) is a critical unofficial indicator of an IPO's listing performance. It reflects the price at which the IPO shares are being traded in the unofficial market before they are actually listed on the stock exchanges (NSE/BSE).
+                                </p>
+                                <p>
+                                    At ShursunT, our AI Quant models analyze GMP trends alongside institutional subscription data (QIB, NII, Retail) to calculate a probabilistic listing gain. A high subscription rate coupled with a rising GMP is often a precursor to stellar listing day gains.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div className="p-6 rounded-3xl bg-secondary/20 border border-white/5">
+                                <h3 className="font-bold text-primary mb-2">Mainboard IPOs</h3>
+                                <p className="text-xs text-muted-foreground">Large-scale companies listing with multi-thousand crore issue sizes. High liquidity and institutional participation.</p>
+                            </div>
+                            <div className="p-6 rounded-3xl bg-secondary/20 border border-white/5">
+                                <h3 className="font-bold text-primary mb-2">SME IPOs</h3>
+                                <p className="text-xs text-muted-foreground">Small and Medium Enterprises focusing on growth. Usually involves higher risk but significant listing gain potential.</p>
+                            </div>
+                        </div>
+                    </section>
+                </>
             )}
         </div>
     );

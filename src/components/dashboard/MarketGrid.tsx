@@ -46,54 +46,45 @@ function MarketGridComponent({
     }, [initialWatchlistIds, user]);
 
     const [generatingPrediction, setGeneratingPrediction] = useState<string | null>(null);
+    const [countdown, setCountdown] = useState<{ id: string, count: number, symbol: string } | null>(null);
+
+    // Handle redirection safely after countdown
+    useEffect(() => {
+        if (countdown && countdown.count <= 0) {
+            const { symbol, id } = countdown;
+            // Immediate transition
+            router.push(`/predictions?generating=true&symbol=${symbol || id}&type=${assetType}&source=${source}`);
+            setCountdown(null);
+        }
+    }, [countdown, router, assetType, source]);
 
     // Generate prediction using local API
-    const handlePrediction = useCallback(async (coin: Coin) => {
+    const handlePrediction = useCallback((coin: Coin) => {
         if (!user) {
             toast.error("Please login to use AI features.");
             return;
         }
 
-        if (generatingPrediction) {
-            toast.error("Please wait for the current prediction to complete.");
+        if (generatingPrediction || countdown) {
+            toast.error("Please wait for the current action to complete.");
             return;
         }
 
-        setGeneratingPrediction(coin.id);
-        toast.loading(`Generating prediction for ${coin.name}...`, { id: `predict-${coin.id}` });
+        // Start 5 second countdown with symbol data
+        setCountdown({ id: coin.id, symbol: coin.symbol, count: 5 });
 
-        try {
-            const response = await fetch('/api/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    coinId: coin.id,
-                    coinName: coin.name,
-                    symbol: coin.symbol,
-                    timeframe: '4h',
-                    type: assetType,
-                    currentPrice: coin.current_price
-                })
+        const timer = setInterval(() => {
+            setCountdown(prev => {
+                if (!prev || prev.count <= 1) {
+                    clearInterval(timer);
+                    return { ...prev!, count: 0 }; // Trigger useEffect
+                }
+                return { ...prev, count: prev.count - 1 };
             });
+        }, 1000);
 
-            const data = await response.json();
-
-            if (data.success) {
-                toast.success(`Prediction generated for ${coin.name}!`, { id: `predict-${coin.id}` });
-                // Navigate to predictions page with source parameter
-                setTimeout(() => {
-                    router.push(`/predictions?poll=true&type=${assetType}&source=${source}`);
-                }, 500);
-            } else {
-                toast.error(data.error || 'Failed to generate prediction', { id: `predict-${coin.id}` });
-            }
-        } catch (err) {
-            console.error("Prediction API Error:", err);
-            toast.error("Failed to generate prediction. Please try again.", { id: `predict-${coin.id}` });
-        } finally {
-            setGeneratingPrediction(null);
-        }
-    }, [user, assetType, router, generatingPrediction]);
+        toast.info(`Starting AI Analysis for ${coin.name} in 5s...`, { duration: 2000 });
+    }, [user, generatingPrediction, countdown]);
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
@@ -156,7 +147,8 @@ function MarketGridComponent({
                                             >
                                                 <button
                                                     className={cn(
-                                                        "w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-black transition-all duration-300 shadow-sm z-20 hover:scale-110 hover:shadow-lg hover:shadow-primary/30",
+                                                        "w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-full transition-all duration-300 shadow-sm z-20 hover:scale-110",
+                                                        "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-500 hover:text-white hover:shadow-[0_0_15px_rgba(99,102,241,0.5)]",
                                                         generatingPrediction === coin.id && "opacity-50 cursor-not-allowed"
                                                     )}
                                                     title="AI Prediction"
@@ -164,9 +156,11 @@ function MarketGridComponent({
                                                         e.stopPropagation();
                                                         handlePrediction(coin);
                                                     }}
-                                                    disabled={generatingPrediction === coin.id}
+                                                    disabled={!!generatingPrediction || !!countdown}
                                                 >
-                                                    {generatingPrediction === coin.id ? (
+                                                    {countdown?.id === coin.id ? (
+                                                        <span className="text-sm font-black">{countdown.count}</span>
+                                                    ) : generatingPrediction === coin.id ? (
                                                         <Loader2 size={16} strokeWidth={2} className="animate-spin" />
                                                     ) : (
                                                         <Brain size={16} strokeWidth={2} />
@@ -235,7 +229,7 @@ function MarketGridComponent({
                                     <div className="mt-4 w-full">
                                         <div className="text-xl md:text-2xl font-black tracking-tight text-foreground mb-0.5 group-hover:text-primary transition-colors duration-300">
                                             {assetType === 'stock' ? '₹' : '$'}
-                                            {coin.current_price.toLocaleString()}
+                                            {coin.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
                                         </div>
 
                                         <div className={cn(

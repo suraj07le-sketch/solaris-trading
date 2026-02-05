@@ -107,10 +107,8 @@ export function HeroSection() {
                         <SolarisIcon className="w-20 h-20 text-primary" />
                         <span className="text-4xl font-bold tracking-widest text-foreground">SHURSUNT</span>
                     </div>
-                    <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-foreground px-4 tracking-tight leading-tight mb-2">
-                        AI Crypto Analytics &
-                    </h1>
                     <h1 className="text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black text-foreground px-4 tracking-tight leading-tight mb-8">
+                        AI Crypto Analytics &<br />
                         Trading Signals. <span className="text-blue-500 animate-pulse">|</span>
                     </h1>
 

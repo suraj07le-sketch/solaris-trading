@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { BrainCircuit, CheckCircle, Clock, TrendingDown, TrendingUp, X, Activity, Target, ShieldCheck, Calendar } from "lucide-react";
-import { format } from "date-fns";
 
 // Helper to clean up messy coin symbols (e.g. TRXUSDTUSD -> TRX)
 const cleanSymbol = (symbol: string | null | undefined) => {
@@ -15,36 +14,40 @@ const cleanSymbol = (symbol: string | null | undefined) => {
         .toUpperCase();
 };
 
+const formatPrice = (price: number, currency: string) => {
+    if (price === 0) return `${currency}0.00`;
+
+    // Choose precision based on price value
+    let decimals = 2;
+    if (price < 0.0001) decimals = 8;
+    else if (price < 1) decimals = 4;
+
+    return `${currency}${price.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: decimals
+    })}`;
+};
+
 const safeFormatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "N/A";
 
     try {
-        let date = new Date(dateString);
-        // Convert to IST timezone
-        if (!isNaN(date.getTime())) {
-            const istDate = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-            return format(istDate, "MMM d, HH:mm");
-        }
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return "Invalid Date";
 
-        const parts = dateString.split(', ');
-        if (parts.length === 2) {
-            const [datePart, timePart] = parts;
-            const [day, month, year] = datePart.split('/').map(Number);
-            const [time, period] = timePart.split(' ');
-            let [hours, minutes, seconds] = time.split(':').map(Number); // eslint-disable-line @typescript-eslint/no-unused-vars
-
-            if (period?.toLowerCase() === 'pm' && hours < 12) hours += 12;
-            if (period?.toLowerCase() === 'am' && hours === 12) hours = 0;
-
-            date = new Date(year, month - 1, day, hours, minutes, 0);
-            if (!isNaN(date.getTime())) {
-                const istDate = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-                return format(istDate, "MMM d, HH:mm");
-            }
-        }
-    } catch (e) { console.error(e) }
-
-    return "Invalid Date";
+        // Use Intl.DateTimeFormat for reliable IST formatting
+        return new Intl.DateTimeFormat('en-IN', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+            timeZone: 'Asia/Kolkata'
+        }).format(date).replace(',', '');
+    } catch (e) {
+        console.error(e);
+        return "Invalid Date";
+    }
 };
 
 interface PredictionCardProps {
@@ -61,8 +64,11 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
     const borderColor = isBullish ? 'hover:border-green-500/30' : 'hover:border-red-500/30';
     const currency = isStock ? '₹' : '$';
 
-    const changePercent = pred.prediction_change_percent || 0;
-    const formattedChange = (changePercent >= 0 ? "+" : "") + Number(changePercent).toFixed(2) + "%";
+    // Ensure prices are numbers and handle edge cases
+    const currentPrice = Number(pred.current_price) || 0;
+    const predictedPrice = Number(pred.predicted_price) || 0;
+    const changePercent = Number(pred.prediction_change_percent) || 0;
+    const formattedChange = (changePercent >= 0 ? "+" : "") + Math.abs(Number(changePercent)).toFixed(2) + "%";
 
     return (
         <>
@@ -123,13 +129,13 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
                         <div className="bg-muted/30 p-4">
                             <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Current</div>
                             <div className="font-mono text-lg text-foreground font-medium">
-                                {currency}{Number(pred.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {formatPrice(currentPrice, currency)}
                             </div>
                         </div>
                         <div className="bg-muted/30 p-4 text-right">
                             <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Target</div>
                             <div className={`font-mono text-lg font-bold ${trendColor}`}>
-                                {currency}{Number(pred.predicted_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                {formatPrice(predictedPrice, currency)}
                             </div>
                         </div>
                     </div>
@@ -198,7 +204,7 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
                                             Current Price
                                         </div>
                                         <div className="text-2xl font-black font-mono">
-                                            {currency}{Number(pred.current_price || 0).toLocaleString()}
+                                            {formatPrice(currentPrice, currency)}
                                         </div>
                                     </div>
                                     <div className={`p-6 rounded-3xl border flex flex-col gap-2 ${isBullish ? 'bg-green-500/5 border-green-500/10' : 'bg-red-500/5 border-red-500/10'}`}>
@@ -207,7 +213,7 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
                                             Target Price
                                         </div>
                                         <div className={`text-2xl font-black font-mono ${trendColor}`}>
-                                            {currency}{Number(pred.predicted_price || 0).toLocaleString()}
+                                            {formatPrice(predictedPrice, currency)}
                                         </div>
                                     </div>
                                 </div>
@@ -234,7 +240,7 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
                                             Stop Loss
                                         </div>
                                         <div className="text-lg font-black font-mono text-foreground">
-                                            {currency}{Number(pred.stop_loss_price || pred.stop_loss || 0).toLocaleString()}
+                                            {formatPrice(Number(pred.stop_loss_price || pred.stop_loss || 0), currency)}
                                         </div>
                                     </div>
 
@@ -286,4 +292,3 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
         </>
     );
 }
-

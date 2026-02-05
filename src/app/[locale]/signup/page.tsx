@@ -135,7 +135,7 @@ function ThemeAdaptiveBackground() {
             />
 
             {/* Animated mesh lines */}
-            <svg className="absolute inset-0 w-full h-full opacity-10">
+            <svg className="absolute inset-0 w-full h-full opacity-10" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <defs>
                     <linearGradient id="lineGradSignup" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stopColor="currentColor" className={colors.accent.replace("text-", "")} />
@@ -145,9 +145,9 @@ function ThemeAdaptiveBackground() {
                 {[...Array(6)].map((_, i) => (
                     <motion.path
                         key={i}
-                        d={`M ${8 + i * 17}% 0% Q ${12 + i * 15}% 50% ${10 + i * 18}% 100%`}
+                        d={`M ${8 + i * 17} 0 Q ${12 + i * 15} 50 ${10 + i * 18} 100`}
                         stroke="currentColor"
-                        strokeWidth="1"
+                        strokeWidth="0.5"
                         fill="none"
                         className={colors.accent}
                         initial={{ pathLength: 0, opacity: 0 }}

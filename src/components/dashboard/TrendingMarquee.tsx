@@ -33,7 +33,7 @@ export function TrendingMarquee() {
                 {doubledStocks.map((stock, i) => (
                     <div key={i} className="flex items-center gap-3">
                         <span className="text-sm font-black text-white">{stock.symbol}</span>
-                        <span className="text-sm font-mono opacity-60">₹{stock.current_price.toLocaleString()}</span>
+                        <span className="text-sm font-mono opacity-60">₹{stock.current_price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}</span>
                         <div className={`flex items-center gap-1 text-xs font-bold ${stock.change_percent >= 0 ? "text-green-400" : "text-red-400"}`}>
                             {stock.change_percent >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                             {Math.abs(stock.change_percent)}%

@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
             allow: '/',
             disallow: ['/api/admin/', '/admin/'],
         },
-        sitemap: 'https://shursunt.com/sitemap.xml',
+        sitemap: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://shursunt.com'}/sitemap.xml`,
     }
 }

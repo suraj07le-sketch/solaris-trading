@@ -9,15 +9,55 @@ import { useAuth } from "@/context/AuthContext";
 import { ThemeSelector } from "@/components/ui/ThemeSelector";
 import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SolarisIcon } from "@/components/ui/SolarisIcon";
 import { Sparkles } from "@/components/ui/sparkles";
 import { ThinShineText } from "@/components/ui/thin-shine-effect";
 import { useTranslations } from "next-intl";
 
-
 interface SidebarProps {
     isOpen?: boolean;
     onClose?: () => void;
+}
+
+function SidebarSkeleton() {
+    return (
+        <aside className="fixed top-0 left-0 z-50 h-screen w-64 bg-background/95 backdrop-blur-xl border-r border-border flex flex-col justify-between p-8 shadow-2xl">
+            <div>
+                {/* Logo Skeleton */}
+                <div className="flex flex-col gap-3 mb-16 pr-12">
+                    <div className="flex items-center gap-1">
+                        <Skeleton className="w-10 h-10 rounded-full" />
+                        <Skeleton className="h-8 w-32" />
+                    </div>
+                    <div className="pl-1">
+                        <Skeleton className="h-3 w-40" />
+                    </div>
+                </div>
+
+                {/* Nav Skeleton */}
+                <div className="space-y-4">
+                    {[...Array(9)].map((_, i) => (
+                        <div key={i} className="flex items-center gap-3 px-4 py-3">
+                            <Skeleton className="w-5 h-5 rounded-md" />
+                            <Skeleton className="h-4 w-24" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Bottom Section Skeleton */}
+            <div className="pt-6 border-t border-border space-y-4">
+                <div className="px-4">
+                    <Skeleton className="h-10 w-full rounded-xl" />
+                </div>
+                <div className="flex items-center gap-3 px-4 py-3">
+                    <Skeleton className="w-8 h-8 rounded-full" />
+                    <Skeleton className="h-4 w-20" />
+                </div>
+            </div>
+        </aside>
+    );
 }
 
 export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
@@ -43,7 +83,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
         { name: t('billing'), href: "/billing", icon: CreditCard },
     ], [t]);
 
-    if (!isMounted) return null;
+    if (!isMounted) return <SidebarSkeleton />;
 
     return (
         <>

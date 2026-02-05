@@ -54,8 +54,10 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             };
         },
         {
-            refreshInterval: 600000, // 10 minutes
-            revalidateOnFocus: false,
+            refreshInterval: 600000,
+            revalidateOnFocus: true,
+            revalidateOnMount: true,
+            revalidateOnReconnect: true,
         }
     );
 
@@ -131,8 +133,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         {
             revalidateOnFocus: true,
             revalidateOnMount: true,
-            refreshInterval: 60000, // Reduced frequency to prevent API hammering
-            dedupingInterval: 10000,
+            revalidateOnReconnect: true,
+            refreshInterval: 30000, // 30 seconds for dashboard
+            dedupingInterval: 5000,
         }
     );
 

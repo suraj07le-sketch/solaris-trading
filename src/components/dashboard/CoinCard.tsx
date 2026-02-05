@@ -145,7 +145,7 @@ export default function CoinCard({ coin }: CoinCardProps) {
 
             <div className="space-y-2">
                 <h4 className="text-2xl font-bold">
-                    {coin.asset_type === 'stock' ? '₹' : '$'}{coin.current_price?.toLocaleString() ?? "N/A"}
+                    {coin.asset_type === 'stock' ? '₹' : '$'}{coin.current_price?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 }) ?? "N/A"}
                 </h4>
                 <div className={`flex items-center text-sm font-medium ${priceChangeColor}`}>
                     <Arrow className="w-4 h-4 mr-1" />

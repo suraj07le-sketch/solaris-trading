@@ -124,6 +124,33 @@ export default function MutualFundExplorer() {
                     </div>
                 )
             }
+
+            {/* SEO Content Section */}
+            {!loading && (
+                <section className="mt-32 grid grid-cols-1 md:grid-cols-2 gap-16 border-t border-white/5 pt-20">
+                    <div>
+                        <h2 className="text-3xl font-black text-white mb-6 tracking-tight">AI-Powered Mutual Fund Selection</h2>
+                        <div className="space-y-4 text-muted-foreground leading-relaxed">
+                            <p>
+                                Selecting the right mutual fund requires analyzing historical performance against risk-adjusted metrics. Our AI Conviction Score evaluates funds based on alpha generation, beta sensitivity, and rolling returns stability.
+                            </p>
+                            <p>
+                                Whether you are looking for Small Cap funds for high growth or Large Cap funds for stability, ShursunT provides institutional-grade data to help retail investors make quantitative decisions. We benchmark every fund against its category peers to ensure you only invest in S-Tier opportunities.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="space-y-6">
+                        <div className="p-6 rounded-3xl bg-secondary/20 border border-white/5">
+                            <h3 className="font-bold text-primary mb-2">Direct vs regular Plans</h3>
+                            <p className="text-xs text-muted-foreground">Always prefer Direct plans to save on commission costs, leading to ~1% higher annual returns over long periods.</p>
+                        </div>
+                        <div className="p-6 rounded-3xl bg-secondary/20 border border-white/5">
+                            <h3 className="font-bold text-primary mb-2">Risk Conviction</h3>
+                            <p className="text-xs text-muted-foreground">Our AI filters out funds with inconsistent track records, focusing on those with stable management and high Sharpe ratios.</p>
+                        </div>
+                    </div>
+                </section>
+            )}
         </div >
     );
 }

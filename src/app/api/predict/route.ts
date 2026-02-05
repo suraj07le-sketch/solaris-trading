@@ -177,11 +177,81 @@ function ensemblePrediction(features: { emaFast: number[]; emaSlow: number[]; rs
     return { direction, confidence: isNaN(confidence) ? 50 : confidence };
 }
 
+// Helper to clean and normalize stock symbols for Yahoo/Indian API
+function cleanStockSymbol(s: string): string {
+    return s
+        .replace(/ Ltd\./gi, '')
+        .replace(/ Ltd/gi, '')
+        .replace(/ Limited/gi, '')
+        .replace(/ Bank/gi, '')
+        .replace(/ Industries/gi, '')
+        .replace(/ /g, '')
+        .toUpperCase();
+}
+
+// Common Indian stock symbol mappings (full name -> Yahoo symbol)
+const INDIAN_STOCK_SYMBOLS: Record<string, string> = {
+    'HINDUSTANUNILEVER': 'HINDUNILIV',
+    'HINDUSTAN UNILEVER': 'HINDUNILIV',
+    'HUL': 'HINDUNILIV',
+    'RELIANCE': 'RELIANCE',
+    'TCS': 'TCS',
+    'INFOSYS': 'INFY',
+    'WIPRO': 'WIPRO',
+    'HDFCBANK': 'HDFCBANK',
+    'ICICIBANK': 'ICICIBANK',
+    'SBIN': 'SBIN',
+    'BAJFINANCE': 'BAJFINANCE',
+    'MARUTI': 'MARUTI',
+    'TATAMOTORS': 'TATAMOTORS',
+    'AXISBANK': 'AXISBANK',
+    'KOTAKBANK': 'KOTAKBANK',
+    'ASIANPAINTS': 'ASIANPAINT',
+    'TITAN': 'TITAN',
+    'ULTRACEMCO': 'ULTRACEMCO',
+    'NESTLEIND': 'NESTLEIND',
+    'POWERGRID': 'POWERGRID',
+    'NTPC': 'NTPC',
+    'COALINDIA': 'COALINDIA',
+    'ONGC': 'ONGC',
+    'BPCL': 'BPCL',
+    'IOC': 'IOC',
+    'ADANIENT': 'ADANIENT',
+    'ADANIPORTS': 'ADANIPORTS',
+    'SUNPHARMA': 'SUNPHARMA',
+    'CIPLA': 'CIPLA',
+    'DRREDDY': 'DRREDDY',
+    'BHARTIARTL': 'BHARTIARTL',
+    'AIRTEL': 'BHARTIARTL',
+    'TECHM': 'TECHM',
+    'LT': 'LT',
+    'HEROMOTOCO': 'HEROMOTOCO',
+    'BAJAJ-AUTO': 'BAJAJ_AUTO',
+    'EICHERMOT': 'EICHERMOT',
+    'M&M': 'M&M',
+    'MAHINDRA': 'M&M',
+    'INDUSINDBK': 'INDUSINDBK',
+    'JSWSTEEL': 'JSWSTEEL',
+    'TATASTEEL': 'TATASTEEL',
+    'JSPL': 'JINDALSTEL',
+    'GRASIM': 'GRASIM',
+    'SHREECEM': 'SHREECEM',
+    'AMBUJCEM': 'AMBUJACEM',
+    'UPL': 'UPL',
+    'DIVISLAB': 'DIVISLAB',
+    'BERGEPAINT': 'BERGEPAINT',
+    'PATANJALI': 'PATANJALI',
+};
+
 // Data Fetching
 async function fetchStockData(symbol: string, expectedPrice?: number): Promise<{ close: number[]; high: number[]; low: number[]; volume: number[] } | null> {
+    const cleanSym = cleanStockSymbol(symbol);
+    // Get the mapped Yahoo symbol if available
+    const yahooSym = INDIAN_STOCK_SYMBOLS[cleanSym] || cleanSym;
+    
     try {
-        console.log(`[API] Trying Indian Stock API for symbol: ${symbol}`);
-        const url = `https://stock.indianapi.in/historical_data?stock_name=${symbol.toUpperCase()}&period=1m&filter=default`;
+        console.log(`[API] Trying Indian Stock API for symbol: ${cleanSym}`);
+        const url = `https://stock.indianapi.in/historical_data?stock_name=${cleanSym}&period=1m&filter=default`;
         const res = await fetch(url, { headers: { "X-Api-Key": INDIAN_API_KEY } });
         if (res.ok) {
             const data = await res.json();
@@ -198,43 +268,68 @@ async function fetchStockData(symbol: string, expectedPrice?: number): Promise<{
         console.error(`[API] Indian API error for ${symbol}:`, error);
     }
 
-    const symbolsToTry = [`${symbol.toUpperCase()}.NS`, `${symbol.toUpperCase()}.BO`, symbol.toUpperCase()];
-    for (const s of symbolsToTry) {
+    // Build list of symbols to try - use mapped symbol first, then original
+    const symbolsToTry = [
+        `${yahooSym}.NS`,
+        `${yahooSym}.BO`,
+        `${cleanSym}.NS`,
+        `${cleanSym}.BO`,
+        yahooSym,
+        cleanSym
+    ];
+    
+    // Remove duplicates
+    const uniqueSymbolsToTry = [...new Set(symbolsToTry)];
+    
+    for (const s of uniqueSymbolsToTry) {
         try {
-            console.log(`[API] Trying Yahoo Finance for symbol: ${s}`);
-            const endDate = new Date();
-            const startDate = new Date();
-            startDate.setFullYear(endDate.getFullYear() - 2);
+            console.log(`[API] Trying Yahoo Finance Chart for: ${s}`);
 
-            // USE INSTANCE yf
-            const results = (await yf.historical(s, {
-                period1: startDate,
-                period2: endDate,
+            // Use chart() instead of historical() to avoid "No data found" errors and deprecation
+            const chartData = await yf.chart(s, {
+                period1: new Date(Date.now() - 365 * 2 * 24 * 60 * 60 * 1000), // 2 Years
+                period2: new Date(),
                 interval: '1d'
-            })) as any[];
+            });
 
-            if (results && results.length > 50) {
+            if (chartData.quotes && chartData.quotes.length > 50) {
                 const close: number[] = [];
                 const high: number[] = [];
                 const low: number[] = [];
                 const volume: number[] = [];
-                for (const day of results) {
+
+                for (const day of chartData.quotes) {
                     if (day.close && day.high && day.low && day.volume) {
-                        close.push(day.close); high.push(day.high); low.push(day.low); volume.push(day.volume);
+                        close.push(day.close);
+                        high.push(day.high);
+                        low.push(day.low);
+                        volume.push(day.volume);
                     }
                 }
-                return { close, high, low, volume };
+
+                if (close.length > 50) {
+                    console.log(`[API] Successfully fetched labels for ${s}`);
+                    return { close, high, low, volume };
+                }
             }
         } catch (error) {
-            console.error(`[API] Error fetching stock data for ${s}:`, error);
+            console.error(`[API] Error fetching chart data for ${s}:`, error);
         }
     }
     return null;
 }
 
 async function fetchCryptoData(symbol: string, timeframe: string, expectedPrice?: number): Promise<{ close: number[]; high: number[]; low: number[]; volume: number[] } | null> {
-    const symbolMap: Record<string, string> = { 'bitcoin': 'BTC', 'btc': 'BTC', 'ethereum': 'ETH', 'eth': 'ETH', 'solana': 'SOL', 'sol': 'SOL', 'dogecoin': 'DOGE', 'doge': 'DOGE', 'ripple': 'XRP', 'xrp': 'XRP', 'cardano': 'ADA', 'polkadot': 'DOT', 'chainlink': 'LINK', 'polygon': 'MATIC' };
-    let baseSymbol = expectedPrice ? symbol : (symbolMap[symbol.toLowerCase()] || symbol.toUpperCase());
+    const symbolMap: Record<string, string> = {
+        'bitcoin': 'BTC', 'ethereum': 'ETH', 'solana': 'SOL', 'dogecoin': 'DOGE',
+        'ripple': 'XRP', 'cardano': 'ADA', 'polkadot': 'DOT', 'chainlink': 'LINK',
+        'polygon': 'MATIC', 'algorand': 'ALGO', 'avalanche-2': 'AVAX', 'stellar': 'XLM',
+        'cosmos': 'ATOM', 'litecoin': 'LTC', 'near-protocol': 'NEAR', 'filecoin': 'FIL',
+        'shiba-inu': 'SHIB', 'pepe': 'PEPE', 'tron': 'TRX', 'uniswap': 'UNI'
+    };
+
+    // Resolve: "algorand" -> "ALGO", "BTC" -> "BTC"
+    let baseSymbol = symbolMap[symbol.toLowerCase()] || symbol.toUpperCase();
 
     // Sanitize: Avoid doubling USDT if it's already in the symbol
     const cleanBase = baseSymbol.replace(/USDT$/i, '').toUpperCase();
@@ -313,32 +408,49 @@ async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', 
         const combinedDirection = (lstm.prediction * 0.4 + gbPred.prediction * 0.3 + ensembleAdv.direction * 0.2 + baseline.direction * 0.1);
         const combinedConfidence = (lstm.confidence * 0.4 + gbPred.confidence * 0.3 + ensembleAdv.confidence * 0.2 + baseline.confidence * 0.1);
         const finalConfidence = Math.min(100, combinedConfidence + Math.abs(patterns.bullishScore - patterns.bearishScore) * 0.5);
-        const latestVol = volatility.length > 0 ? volatility[volatility.length - 1] : 2;
-        const predictedChange = multiHorizon.consensus * (finalConfidence / 100) * (latestVol / 100);
-        const predictedPrice = currentPrice * (1 + predictedChange);
 
-        let signal = 'HOLD'; const latestATR = atr[atr.length - 1] || currentPrice * 0.02;
-        let stopLoss = currentPrice;
-        if (combinedDirection > 0.1 && finalConfidence > 55) { signal = 'BUY'; stopLoss = currentPrice - latestATR * 2; }
-        else if (combinedDirection < -0.1 && finalConfidence > 55) { signal = 'SELL'; stopLoss = currentPrice + latestATR * 2; }
+        const latestVol = volatility.length > 0 ? volatility[volatility.length - 1] : 2;
+        const latestATR = atr[atr.length - 1] || currentPrice * 0.02;
+
+        // Unified Signal Logic
+        let signal = 'HOLD';
+        if (combinedDirection > 0.1 && finalConfidence > 55) {
+            signal = 'BUY';
+        } else if (combinedDirection < -0.1 && finalConfidence > 55) {
+            signal = 'SELL';
+        }
+
+        // Logic Check: Ensure predictedPrice follows the signal
+        // We use multiHorizon.consensus but pivot it based on the signal direction
+        let predictedChange = multiHorizon.consensus * (finalConfidence / 100) * (latestVol / 100);
+
+        if (signal === 'BUY' && predictedChange <= 0) {
+            // Force a positive change based on ATR if the models were slightly contradictory
+            // Safe division check
+            const divisor = currentPrice > 0 ? currentPrice : 1;
+            predictedChange = (latestATR / divisor) * 1.5;
+        } else if (signal === 'SELL' && predictedChange >= 0) {
+            // Force a negative change
+            const divisor = currentPrice > 0 ? currentPrice : 1;
+            predictedChange = -(latestATR / divisor) * 1.5;
+        } else if (signal === 'HOLD') {
+            // Dampen change for HOLD
+            predictedChange = predictedChange * 0.2;
+        }
+
+        const predictedPrice = currentPrice * (1 + predictedChange);
+        const stopLoss = signal === 'BUY' ? currentPrice - latestATR * 2 : (signal === 'SELL' ? currentPrice + latestATR * 2 : currentPrice);
 
         const validHours = timeframe === '1h' ? 1 : timeframe === '4h' ? 4 : 24;
-
-        // Helper to get ISO-like string for IST
-        const toIST = (date: Date) => {
-            return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-        };
-
         const now = new Date();
-        const istNow = toIST(now);
-        const istValidTill = toIST(new Date(now.getTime() + validHours * 60 * 60 * 1000));
+        const validTill = new Date(now.getTime() + validHours * 60 * 60 * 1000);
 
         return {
             success: true, asset, type: assetType, timeframe, current_price: currentPrice,
             predicted_price: predictedPrice, prediction_change_percent: ((predictedPrice - currentPrice) / currentPrice) * 100,
             signal, confidence: finalConfidence, stop_loss: stopLoss, market_regime: regime,
-            prediction_time: istNow.toISOString(),
-            valid_till: istValidTill.toISOString()
+            prediction_time: now.toISOString(),
+            valid_till: validTill.toISOString()
         };
     } catch (e: any) {
         console.error('[API] Prediction error:', e); return { success: false, error: e.message };
@@ -364,12 +476,34 @@ export async function POST(req: Request) {
         if (authError || !user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
         const { coinId, coinName, timeframe, type, currentPrice, symbol: providedSymbol } = await req.json();
-        const isCrypto = type === 'crypto' || ["btc", "eth", "sol", "doge", "xrp", "ada", "dot"].includes(providedSymbol?.toLowerCase() || coinId?.toLowerCase());
+
+        // Smarter asset type detection
+        const isCrypto = type === 'crypto' ||
+            ["btc", "eth", "sol", "doge", "xrp", "algo", "avax", "shib", "matic"].includes(providedSymbol?.toLowerCase() || coinId?.toLowerCase());
         const assetType = isCrypto ? 'crypto' : 'stock';
-        const assetName = isCrypto ? (providedSymbol || coinId) : (coinName || coinId);
+
+        // Prioritize ticker symbol over Slug/ID for AI Analysis
+        const assetName = isCrypto
+            ? (providedSymbol || coinId)
+            : (coinName || coinId);
 
         const result = await generatePrediction(assetName, assetType, timeframe || '4h', currentPrice);
-        if (!result.success) return NextResponse.json({ success: false, error: result.error }, { status: 500 });
+
+        // If first attempt fails and it was crypto, try one last time with a forced ticker if we have one
+        if (!result.success && isCrypto && coinId !== providedSymbol && providedSymbol) {
+            console.log(`[API] Retrying with provided symbol: ${providedSymbol}`);
+            const retry = await generatePrediction(providedSymbol, assetType, timeframe || '4h', currentPrice);
+            if (retry.success) return NextResponse.json({ success: true, prediction: retry });
+
+            // If retry also fails, return the error from the retry attempt
+            return NextResponse.json({ success: false, error: retry.error || 'Retry failed' });
+        }
+
+        if (!result.success) {
+            console.warn(`[API] Prediction failed for ${assetName}: ${result.error}`);
+            // Return 200 success:false instead of 500 for business logic failure
+            return NextResponse.json({ success: false, error: result.error });
+        }
 
         // --- BACKGROUND STORAGE (Non-blocking) ---
         (async () => {

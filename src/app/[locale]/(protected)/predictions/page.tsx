@@ -9,8 +9,7 @@ import useSWR, { SWRConfiguration } from "swr";
 import { PredictionCard } from "@/components/dashboard/PredictionCard";
 import { GridBackground } from "@/components/ui/GridBackground";
 import { motion, AnimatePresence } from "framer-motion";
-import { BrainCircuit, Sparkles, Calendar, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { BrainCircuit, Sparkles, Calendar, ChevronLeft, ChevronRight, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 // Prediction Skeleton Component
@@ -52,7 +51,7 @@ function PredictionSkeleton() {
 }
 
 // Robust fetcher function
-const fetcher = async function([userId, date, tab]: [string, string, 'stock' | 'crypto']) {
+const fetcher = async function ([userId, date, tab]: [string, string, 'stock' | 'crypto']) {
     if (!userId) return [];
 
     const tableName = tab === 'stock' ? 'stock_predictions' : 'crypto_predictions';
@@ -77,7 +76,13 @@ const fetcher = async function([userId, date, tab]: [string, string, 'stock' | '
             .limit(100);
 
         if (error) {
+            // Handle AbortError gracefully - this happens when component unmounts/navigates away
+            if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+                console.log("[Fetcher] Request was aborted (component unmounted or navigation)");
+                return [];
+            }
             console.error("[Fetcher] Supabase Error:", error.message);
+            toast.error("Failed to update data. Showing cached version.");
             return LocalStorage.getPredictionCache(userId, date, tab) || [];
         }
 
@@ -100,7 +105,7 @@ const fetcher = async function([userId, date, tab]: [string, string, 'stock' | '
         }));
 
         // Helper to parse date
-        const parseRobust = function(d: string) {
+        const parseRobust = function (d: string) {
             if (!d) return null;
             if (d.includes('/')) {
                 try {
@@ -118,7 +123,7 @@ const fetcher = async function([userId, date, tab]: [string, string, 'stock' | '
                         return new Date(year, month - 1, day, hours, minutes || 0);
                     }
                     return new Date(year, month - 1, day);
-                } catch (e) { return null; }
+                } catch (_e) { return null; }
             }
             const parsed = new Date(d);
             return isNaN(parsed.getTime()) ? null : parsed;
@@ -138,7 +143,7 @@ const fetcher = async function([userId, date, tab]: [string, string, 'stock' | '
                     day: '2-digit'
                 }).format(predDate);
                 return istPart === date;
-            } catch (e) { return false; }
+            } catch (_e) { return false; }
         });
 
         console.log(`[Fetcher] ${filtered.length} records match date ${date}`);
@@ -168,11 +173,13 @@ const fetcher = async function([userId, date, tab]: [string, string, 'stock' | '
         return finalData;
     } catch (err) {
         console.error("[Fetcher] Error:", err);
+        toast.error("Connection error. Showing cached version.");
         return LocalStorage.getPredictionCache(userId, date, tab) || [];
     }
 };
 
 export default function PredictionsPage() {
+    const router = useRouter();
     const { user } = useAuth();
 
     // Get today's date in IST
@@ -190,6 +197,7 @@ export default function PredictionsPage() {
     const [lastPredictionTime, setLastPredictionTime] = useState<number>(Date.now());
     const [isGenerating, setIsGenerating] = useState(false);
     const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !navigator.onLine : false);
+    const [targetSymbol, setTargetSymbol] = useState<string | null>(null);
 
     // Load cached data immediately
     const cachedData = user ? LocalStorage.getPredictionCache(user.id, selectedDate, activeTab) : null;
@@ -199,13 +207,12 @@ export default function PredictionsPage() {
         revalidateOnFocus: false,
         revalidateOnMount: true,
         revalidateOnReconnect: false,
-        dedupingInterval: 5000,
-        refreshInterval: isPolling ? 5000 : 0,
+        dedupingInterval: 30000, // 30s deduping for instant back/forth
         suspense: false,
         keepPreviousData: true,
-        revalidateIfStale: true,
+        revalidateIfStale: false, // Don't show spinner if data is in cache
         focusThrottleInterval: 5000,
-        errorRetryCount: 2,
+        errorRetryCount: 1,
         errorRetryInterval: 1000
     };
 
@@ -219,9 +226,9 @@ export default function PredictionsPage() {
     const displayData = predictions || cachedData || [];
 
     // Auto-stop generating state when new data arrives
-    useEffect(function() {
+    useEffect(function () {
         if (isGenerating && predictions && predictions.length > 0) {
-            const hasNew = predictions.some(function(p: any) {
+            const hasNew = predictions.some(function (p: any) {
                 const pTime = new Date(p.created_at).getTime();
                 return pTime > lastPredictionTime;
             });
@@ -232,9 +239,9 @@ export default function PredictionsPage() {
     }, [predictions, isGenerating, lastPredictionTime]);
 
     // Auto-stop polling when new data arrives
-    useEffect(function() {
+    useEffect(function () {
         if (isPolling && predictions && predictions.length > 0) {
-            const hasNew = predictions.some(function(p: any) {
+            const hasNew = predictions.some(function (p: any) {
                 const pTime = new Date(p.created_at).getTime();
                 return pTime > lastPredictionTime;
             });
@@ -245,13 +252,13 @@ export default function PredictionsPage() {
     }, [predictions, isPolling, lastPredictionTime]);
 
     // Offline detection
-    useEffect(function() {
-        const handleOnline = function() {
+    useEffect(function () {
+        const handleOnline = function () {
             setIsOffline(false);
             toast.success("Back Online!");
             mutate();
         };
-        const handleOffline = function() {
+        const handleOffline = function () {
             setIsOffline(true);
             toast.warning("You are currently offline.");
         };
@@ -259,14 +266,14 @@ export default function PredictionsPage() {
         window.addEventListener('online', handleOnline);
         window.addEventListener('offline', handleOffline);
 
-        return function() {
+        return function () {
             window.removeEventListener('online', handleOnline);
             window.removeEventListener('offline', handleOffline);
         };
     }, [mutate]);
 
     // Polling timer
-    useEffect(function() {
+    useEffect(function () {
         if (!isPolling) {
             setPollProgress(0);
             return;
@@ -276,7 +283,7 @@ export default function PredictionsPage() {
         const interval = 100;
         const startTime = Date.now();
 
-        const timerId = setInterval(function() {
+        const timerId = setInterval(function () {
             const elapsed = Date.now() - startTime;
             const progress = Math.min((elapsed / totalDuration) * 100, 100);
             setPollProgress(progress);
@@ -287,11 +294,11 @@ export default function PredictionsPage() {
             }
         }, interval);
 
-        return function() { clearInterval(timerId); };
+        return function () { clearInterval(timerId); };
     }, [isPolling]);
 
     // Generate prediction function (used by Market page redirects)
-    const generatePrediction = useCallback(async function(symbol: string, type: 'stock' | 'crypto') {
+    const generatePrediction = useCallback(async function (symbol: string, type: 'stock' | 'crypto') {
         if (!user) return;
 
         setIsGenerating(true);
@@ -318,7 +325,7 @@ export default function PredictionsPage() {
             toast.success(`Analysis complete for ${symbol}!`);
 
             mutate();
-            
+
             const allPredictions = predictions || [];
             if (allPredictions.length > 0 || (result && result.data)) {
                 setIsPolling(true);
@@ -331,28 +338,39 @@ export default function PredictionsPage() {
         }
     }, [user, predictions, mutate]);
 
-    // Check URL parameters for auto-generation
-    useEffect(function() {
+    // Check URL parameters for auto-generation and tab selection
+    useEffect(function () {
         const params = new URLSearchParams(window.location.search);
         const autoGenerate = params.get('generating') === 'true';
         const symbol = params.get('symbol');
         const type = params.get('type') as 'stock' | 'crypto';
 
-        if (autoGenerate && symbol && type) {
+        // Always set the active tab if type is provided in URL
+        if (type && (type === 'stock' || type === 'crypto')) {
             setActiveTab(type);
+        }
+
+        if (symbol) {
+            setTargetSymbol(symbol);
+        }
+
+        if (autoGenerate && symbol && type) {
             toast.info(`Preparing AI Analysis for ${symbol}...`, { duration: 2000 });
 
-            const timer = setTimeout(function() {
+            const timer = setTimeout(function () {
                 generatePrediction(symbol, type);
+                // Clean up URL but keep type if needed? Actually, user just wants it to open.
+                // We'll replace state to remove the 'generating' flag but can keep type if we want
+                // Actually, let's just clear it to keep it clean after starting.
                 window.history.replaceState({}, '', window.location.pathname);
             }, 2000);
 
-            return function() { clearTimeout(timer); };
+            return function () { clearTimeout(timer); };
         }
     }, [generatePrediction]);
 
     // Format date for display
-    const formatDateDisplay = function(dateStr: string) {
+    const formatDateDisplay = function (dateStr: string) {
         try {
             const date = new Date(dateStr);
             return new Intl.DateTimeFormat('en-IN', {
@@ -367,7 +385,7 @@ export default function PredictionsPage() {
     };
 
     // Handle date navigation
-    const handleDateChange = function(direction: 'prev' | 'next') {
+    const handleDateChange = function (direction: 'prev' | 'next') {
         const current = new Date(selectedDate);
         if (direction === 'prev') {
             current.setDate(current.getDate() - 1);
@@ -384,7 +402,7 @@ export default function PredictionsPage() {
     };
 
     // Handle tab switch
-    const handleTabSwitch = function(tab: 'stock' | 'crypto') {
+    const handleTabSwitch = function (tab: 'stock' | 'crypto') {
         setActiveTab(tab);
     };
 
@@ -408,7 +426,7 @@ export default function PredictionsPage() {
                         {/* Date Selector */}
                         <div className="flex items-center bg-card/50 backdrop-blur-sm rounded-full border border-border/50 p-1">
                             <button
-                                onClick={function() { handleDateChange('prev'); }}
+                                onClick={function () { handleDateChange('prev'); }}
                                 className="p-2 hover:bg-accent/50 rounded-full transition-colors"
                             >
                                 <ChevronLeft className="w-5 h-5" />
@@ -418,7 +436,7 @@ export default function PredictionsPage() {
                                 {formatDateDisplay(selectedDate)}
                             </span>
                             <button
-                                onClick={function() { handleDateChange('next'); }}
+                                onClick={function () { handleDateChange('next'); }}
                                 className="p-2 hover:bg-accent/50 rounded-full transition-colors"
                             >
                                 <ChevronRight className="w-5 h-5" />
@@ -427,7 +445,7 @@ export default function PredictionsPage() {
 
                         {/* Refresh Button */}
                         <button
-                            onClick={function() { mutate(); }}
+                            onClick={function () { mutate(); }}
                             disabled={isLoading || isValidating}
                             className="p-2 bg-card/50 backdrop-blur-sm rounded-full border border-border/50 hover:bg-accent/50 transition-colors disabled:opacity-50"
                         >
@@ -449,44 +467,34 @@ export default function PredictionsPage() {
 
                 {/* Tab Switcher */}
                 <div className="flex gap-2 mb-8">
-                    {(['stock', 'crypto'] as const).map(function(tab) { return (
-                        <button
-                            key={tab}
-                            onClick={function() { handleTabSwitch(tab); }}
-                            className={`px-6 py-2 rounded-full font-medium transition-all ${
-                                activeTab === tab
+                    {(['stock', 'crypto'] as const).map(function (tab) {
+                        return (
+                            <button
+                                key={tab}
+                                onClick={function () { handleTabSwitch(tab); }}
+                                className={`px-6 py-2 rounded-full font-medium transition-all ${activeTab === tab
                                     ? 'bg-primary text-primary-foreground shadow-lg'
                                     : 'bg-card/50 hover:bg-card text-muted-foreground hover:text-foreground border border-border/50'
-                            }`}
-                        >
-                            {tab === 'stock' ? ' Stocks' : ' Crypto'}
-                        </button>
-                    ); })}
+                                    }`}
+                            >
+                                {tab === 'stock' ? ' Stocks' : ' Crypto'}
+                            </button>
+                        );
+                    })}
                 </div>
 
-                {/* Polling Progress Bar */}
-                {isPolling && (
-                    <div className="mb-6 bg-card/50 backdrop-blur-sm rounded-full h-2 border border-border/50 overflow-hidden">
-                        <motion.div
-                            className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${pollProgress}%` }}
-                            transition={{ duration: 0.1 }}
-                        />
-                    </div>
-                )}
-
-                {/* Loading State */}
-                {isLoading && !cachedData && displayData.length === 0 ? (
+                {/* Content Area */}
+                {isLoading && !cachedData && displayData.length === 0 && !isGenerating && !isPolling ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {[1, 2, 3, 4, 5, 6].map(function(i) { return <PredictionSkeleton key={i} />; })}
+                        {[1, 2, 3, 4, 5, 6].map(function (i) { return <PredictionSkeleton key={i} />; })}
                     </div>
-                ) : displayData && displayData.length > 0 ? (
+                ) : displayData.length > 0 || isGenerating || isPolling ? (
                     <>
                         {/* Status bar */}
                         <div className="flex items-center justify-between mb-6 text-sm text-muted-foreground">
-                            <span>
-                                {isValidating ? 'Updating...' : `Showing ${displayData.length} predictions`}
+                            <span className="flex items-center gap-2">
+                                {isValidating && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
+                                {isValidating ? 'Updating live data...' : `Showing ${displayData.length} predictions`}
                             </span>
                             <span>
                                 {isGenerating ? 'Generating prediction...' : ''}
@@ -494,39 +502,79 @@ export default function PredictionsPage() {
                         </div>
 
                         {/* Predictions Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <motion.div
+                            variants={{
+                                hidden: { opacity: 0 },
+                                show: {
+                                    opacity: 1,
+                                    transition: {
+                                        staggerChildren: 0.1
+                                    }
+                                }
+                            }}
+                            initial="hidden"
+                            animate="show"
+                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                        >
                             <AnimatePresence mode="popLayout">
-                                {displayData.map(function(prediction: any, index: number) { return (
+                                {/* Show skeleton as first item if generating or polling */}
+                                {(isGenerating || isPolling) && (
                                     <motion.div
-                                        key={prediction.id || prediction.coin || prediction.stock_name || index}
+                                        key="generating-skeleton"
                                         initial={{ opacity: 0, y: 20 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0, scale: 0.95 }}
-                                        transition={{ delay: index * 0.05 }}
-                                        layout
                                     >
-                                        <PredictionCard
-                                            pred={prediction}
-                                            isStock={activeTab === 'stock'}
-                                        />
+                                        <PredictionSkeleton />
                                     </motion.div>
-                                ); })}
+                                )}
+
+                                {displayData.map(function (prediction: any, index: number) {
+                                    return (
+                                        <motion.div
+                                            key={prediction.id || prediction.coin || prediction.stock_name || index}
+                                            variants={{
+                                                hidden: { opacity: 0, y: 20 },
+                                                show: { opacity: 1, y: 0 }
+                                            }}
+                                            layout
+                                            exit={{ opacity: 0, scale: 0.95 }}
+                                        >
+                                            <PredictionCard
+                                                pred={prediction}
+                                                isStock={activeTab === 'stock'}
+                                                initialOpen={targetSymbol === (prediction.stock_name || prediction.coin || prediction.symbol)}
+                                            />
+                                        </motion.div>
+                                    );
+                                })}
                             </AnimatePresence>
-                        </div>
+                        </motion.div>
                     </>
                 ) : (
                     /* No predictions state */
-                    <div className="text-center py-16">
-                        <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-muted/30 mb-6">
-                            <Sparkles className="w-10 h-10 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-xl font-semibold mb-2">No predictions for this date</h3>
-                        <p className="text-muted-foreground">
-                            Go to Market page to generate predictions
+                    <div className="text-center py-20 px-4">
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-primary/10 mb-6 relative group"
+                        >
+                            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500" />
+                            <Sparkles className="w-12 h-12 text-primary relative z-10" />
+                        </motion.div>
+                        <h3 className="text-2xl font-bold mb-3">No predictions found</h3>
+                        <p className="text-muted-foreground max-w-sm mx-auto mb-8">
+                            Get AI-powered insights for your favorite {activeTab === 'stock' ? 'stocks' : 'crypto assets'} instantly.
                         </p>
+                        <button
+                            onClick={() => router.push('/market')}
+                            className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-all shadow-lg hover:shadow-primary/25 active:scale-95"
+                        >
+                            Generate Prediction
+                        </button>
                     </div>
                 )}
             </div>
-        </div>
+        </div >
     );
 }

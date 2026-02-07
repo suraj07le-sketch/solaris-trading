@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { LocalStorage } from "@/lib/storage";
 import ErrorState from "@/components/ui/ErrorState";
+import { GlassCard } from "@/components/ui/GlassCard"; // Import GlassCard
 
 interface MarketPlaceViewProps {
     initialStocks: Coin[];
@@ -153,7 +154,7 @@ export default function MarketPlaceView({ initialStocks, initialCrypto }: Market
             </div>
 
             {/* Filters Bar */}
-            <div className="flex-none flex flex-col md:flex-row gap-2 justify-between items-center bg-white/5 p-2 rounded-xl border border-white/10 backdrop-blur-sm">
+            <GlassCard className="flex-none flex flex-col md:flex-row gap-2 justify-between items-center p-2 rounded-xl border-white/10 backdrop-blur-sm">
                 <div className="flex gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 no-scrollbar items-center">
                     {/* All Assets Button */}
                     <button
@@ -207,9 +208,7 @@ export default function MarketPlaceView({ initialStocks, initialCrypto }: Market
                         placeholder={`Search ${assetType === 'stock' ? 'Stocks' : 'Crypto'}...`}
                     />
                 </div>
-            </div>
-
-            {/* Grid Content */}
+            </GlassCard>
 
             {/* Grid Content */}
             {filteredData.length > 0 ? (

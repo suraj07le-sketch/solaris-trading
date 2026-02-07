@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import {
     Eye,
@@ -12,12 +12,8 @@ import {
     Lock,
     User,
     ArrowRight,
-    Sparkles,
-    Zap,
     CheckCircle,
-    AlertCircle,
-    Loader2,
-    MailCheck
+    Loader2
 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -41,7 +37,6 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
     const [username, setUsername] = useState("");
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [emailSent, setEmailSent] = useState(false);
     const [focusedField, setFocusedField] = useState<string | null>(null);
     const [passwordStrength, setPasswordStrength] = useState(0);
@@ -186,7 +181,6 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        setError(null);
 
         try {
             if (isLogin) {
@@ -198,7 +192,7 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
                 toast.success(t('welcomeBack')); // Translated
                 // Small delay to allow session to be set
                 await new Promise(resolve => setTimeout(resolve, 100));
-                window.location.href = "/dashboard";
+                router.push("/dashboard");
             } else {
                 // Enforce Password Strength
                 if (passwordStrength < passwordRequirements.length) {
@@ -220,18 +214,19 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
                 if (data.session) {
                     toast.success(t('accountCreated')); // Translated
                     await new Promise(resolve => setTimeout(resolve, 100));
-                    window.location.href = "/dashboard";
+                    router.push("/dashboard");
                 } else {
                     setEmailSent(true);
                 }
             }
-        } catch (err: any) {
-            if (err.message.includes("already registered") || err.message.includes("already exists")) {
-                toast.error(t('userExists')); // Translated
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
+
+            if (errorMessage.includes("already registered") || errorMessage.includes("already exists")) {
+                toast.error(t('userExists'));
             } else {
-                toast.error(err.message);
+                toast.error(errorMessage);
             }
-            setError(err.message);
             setLoading(false);
         }
     };
@@ -408,11 +403,11 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
                                 onFocus={() => setFocusedField("username")}
                                 onBlur={() => setFocusedField(null)}
                                 className={cn(
-                                    "w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 rounded-xl outline-none transition-all placeholder:text-xs sm:placeholder:text-sm",
+                                    "w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 rounded-xl outline-none transition-all placeholder:text-xs sm:placeholder:text-sm peer",
                                     colors.inputBg,
                                     colors.inputBorder,
                                     colors.text,
-                                    "focus:border-current",
+                                    "focus:border-current border hover:border-opacity-50",
                                     focusedField === "username" ? colors.accentBorder : "",
                                     isLight ? "placeholder:text-slate-400" : "placeholder:text-slate-500"
                                 )}
@@ -450,11 +445,11 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
                             onFocus={() => setFocusedField("email")}
                             onBlur={() => setFocusedField(null)}
                             className={cn(
-                                "w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 rounded-xl outline-none transition-all placeholder:text-xs sm:placeholder:text-sm",
+                                "w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 rounded-xl outline-none transition-all placeholder:text-xs sm:placeholder:text-sm peer",
                                 colors.inputBg,
                                 colors.inputBorder,
                                 colors.text,
-                                "focus:border-current",
+                                "focus:border-current border hover:border-opacity-50",
                                 focusedField === "email" ? colors.accentBorder : "",
                                 isLight ? "placeholder:text-slate-400" : "placeholder:text-slate-500"
                             )}
@@ -494,11 +489,11 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
                             onFocus={() => setFocusedField("password")}
                             onBlur={() => setFocusedField(null)}
                             className={cn(
-                                "w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-3 sm:py-4 rounded-xl outline-none transition-all placeholder:text-xs sm:placeholder:text-sm",
+                                "w-full pl-10 sm:pl-12 pr-10 sm:pr-12 py-3 sm:py-4 rounded-xl outline-none transition-all placeholder:text-xs sm:placeholder:text-sm peer",
                                 colors.inputBg,
                                 colors.inputBorder,
                                 colors.text,
-                                "focus:border-current",
+                                "focus:border-current border hover:border-opacity-50",
                                 focusedField === "password" ? colors.accentBorder : "",
                                 isLight ? "placeholder:text-slate-400" : "placeholder:text-slate-500"
                             )}
@@ -580,15 +575,18 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
                     type="submit"
                     disabled={loading}
                     className={cn(
-                        "group relative w-full py-3 sm:py-4 rounded-xl overflow-hidden font-bold uppercase tracking-wider disabled:opacity-70 flex items-center justify-center gap-2"
+                        "group relative w-full py-3 sm:py-4 rounded-xl overflow-hidden font-bold uppercase tracking-wider disabled:opacity-70 flex items-center justify-center gap-2 shadow-lg shadow-current/20 hover:shadow-current/40 transition-all duration-300"
                     )}
                 >
-                    {/* Gradient background */}
+                    {/* Gradient background with Shine effect */}
                     <div className={cn(
-                        "absolute inset-0 bg-gradient-to-r transition-opacity duration-300 opacity-100",
+                        "absolute inset-0 bg-gradient-to-r transition-all duration-300 opacity-100 group-hover:scale-105",
                         colors.gradientFrom,
                         colors.gradientTo
                     )} />
+
+                    {/* Shine overlay */}
+                    <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
 
                     {/* Grid overlay */}
                     <div className={cn("absolute inset-0 opacity-20 bg-[url('/grid.svg')]", isLight ? "brightness-0 invert" : "")} />
@@ -605,6 +603,7 @@ export default function AuthForm({ mode = "login" }: { mode?: "login" | "signup"
                     </div>
                 </motion.button>
             </form>
+
 
             {/* Footer */}
             <motion.div

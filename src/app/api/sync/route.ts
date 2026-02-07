@@ -34,7 +34,14 @@ export async function GET(request: Request) {
 
         // Allow if running in development locally, otherwise enforce secret
         const isDev = process.env.NODE_ENV === 'development';
-        if (!isDev && authHeader !== `Bearer ${cronSecret}`) {
+        const isPreview = process.env.NEXT_PUBLIC_VERCEL_ENV === 'preview';
+
+        // Log request origin for debugging
+        const origin = request.headers.get('origin');
+        const referer = request.headers.get('referer');
+
+        if (!isDev && !isPreview && authHeader !== `Bearer ${cronSecret}`) {
+            console.warn(`[Sync] Unauthorized sync attempt from ${referer || origin}`);
             return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
         }
 

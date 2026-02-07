@@ -1,506 +1,299 @@
 @import "tailwindcss";
-@custom-variant dark (&:where(.dark, .dark *));
-
-/* --- 1. THEME ENGINE --- */
 
 @theme {
-  /* Fluid Spacing & Type (Optional future expansion) */
-  --font-display: "Clash Display", sans-serif;
-  --font-body: "Inter", sans-serif;
-
-  /* Color System Mappings */
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
   --color-primary: hsl(var(--primary));
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-secondary: hsl(var(--secondary));
   --color-secondary-foreground: hsl(var(--secondary-foreground));
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
   --color-muted: hsl(var(--muted));
   --color-muted-foreground: hsl(var(--muted-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
 
-  /* Global Animations */
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  --animate-shimmer: shimmer 2s linear infinite;
-  --animate-scan: scan 4s linear infinite;
-
-  @keyframes float {
-
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-
-    50% {
-      transform: translateY(-20px);
-    }
-  }
-
-  @keyframes shimmer {
-    0% {
-      transform: translateX(-100%);
-    }
-
-    100% {
-      transform: translateX(100%);
-    }
-  }
-
-  @keyframes scan {
-    0% {
-      top: 0%;
-      opacity: 0;
-    }
-
-    10% {
-      opacity: 1;
-    }
-
-    90% {
-      opacity: 1;
-    }
-
-    100% {
-      top: 100%;
-      opacity: 0;
-    }
-  }
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
 }
-
-:root {
-  /* GLOBAL DEFAULTS */
-  --radius: 1rem;
-}
-
-/* --- THEME 1: SOLARIS (DEFAULT / DARK) --- */
-/* A Professional, Deep Space theme with Gold/Orange accents representing the Sun */
-:root,
-.dark {
-  --background: 240 10% 4%;
-  /* #09090b - Void */
-  --foreground: 0 0% 98%;
-  /* White */
-
-  --card: 240 10% 7%;
-  /* #101012 */
-  --card-foreground: 0 0% 98%;
-
-  --popover: 240 10% 7%;
-  --popover-foreground: 0 0% 98%;
-
-  --primary: 35 100% 55%;
-  /* #ff9f1c - Solar Gold/Orange */
-  --primary-foreground: 0 0% 0%;
-
-  --secondary: 240 5% 20%;
-  /* #303036 */
-  --secondary-foreground: 0 0% 98%;
-
-  --muted: 240 5% 15%;
-  --muted-foreground: 240 5% 65%;
-
-  --accent: 35 100% 55%;
-  --accent-foreground: 0 0% 0%;
-
-  --destructive: 0 85% 60%;
-  --destructive-foreground: 0 0% 98%;
-
-  --border: 240 5% 15%;
-  --input: 240 5% 15%;
-  --ring: 35 100% 55%;
-  /* Gold Ring */
-}
-
-/* --- THEME 2: POLARIS (LIGHT / GLASS) --- */
-/* Clean, Apple-inspired, High Contrast with Blue accents */
-.light {
-  --background: 210 40% 98%;
-  /* Cool White / Alice Blue tint */
-  --foreground: 240 10% 10%;
-  /* #18181b */
-
-  --card: 0 0% 100%;
-  /* White */
-  --card-foreground: 240 10% 10%;
-
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 10%;
-
-  --primary: 215 100% 50%;
-  /* #007aff - Vivid Blue */
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 240 5% 96%;
-  /* Light Gray */
-  --secondary-foreground: 240 10% 10%;
-
-  --muted: 240 5% 96%;
-  --muted-foreground: 240 4% 46%;
-
-  --accent: 215 100% 50%;
-  --accent-foreground: 0 0% 100%;
-
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 215 100% 50%;
-}
-
-/* --- THEME 3: NEBULA (NEON / CYBERPUNK) --- */
-/* The "Interesting" One. Blackest Black with Neon Pink/Cyan/Purple */
-.neon {
-  --background: 280 50% 2%;
-  /* Deep Purple/Black Void */
-  --foreground: 280 10% 95%;
-
-  --card: 280 40% 5%;
-  /* Darker than Solaris */
-  --card-foreground: 280 10% 95%;
-
-  --popover: 280 40% 5%;
-  --popover-foreground: 280 10% 95%;
-
-  --primary: 320 100% 60%;
-  /* Hot Pink */
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 180 100% 50%;
-  /* Cyan */
-  --secondary-foreground: 0 0% 0%;
-
-  --muted: 280 30% 10%;
-  --muted-foreground: 280 20% 70%;
-
-  --accent: 270 100% 60%;
-  /* Electric Purple */
-  --accent-foreground: 0 0% 100%;
-
-  --destructive: 0 100% 50%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 280 30% 20%;
-  /* Visible Purple Borders */
-  --input: 280 30% 20%;
-  --ring: 320 100% 60%;
-}
-
-/* --- THEME 4: ECLIPSE (OLED / MINIMAL) --- */
-/* Pure Black (#000000) for battery saving and ultra-high contrast */
-.cyber {
-  /* Mapping "cyber" class to Eclipse theme for now to reuse class logic */
-  --background: 0 0% 0%;
-  /* #000000 Pure Black */
-  --foreground: 0 0% 100%;
-  /* Pure White */
-
-  --card: 0 0% 0%;
-  /* Black w/ White Border */
-  --card-foreground: 0 0% 100%;
-
-  --popover: 0 0% 0%;
-  --popover-foreground: 0 0% 100%;
-
-  --primary: 0 0% 100%;
-  /* Monochrome Primary */
-  --primary-foreground: 0 0% 0%;
-
-  --secondary: 0 0% 15%;
-  /* Dark Gray */
-  --secondary-foreground: 0 0% 100%;
-
-  --muted: 0 0% 10%;
-  --muted-foreground: 0 0% 60%;
-
-  --accent: 0 0% 100%;
-  --accent-foreground: 0 0% 0%;
-
-  --destructive: 0 100% 50%;
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 0 0% 25%;
-  /* High contrast border */
-  --input: 0 0% 25%;
-  --ring: 0 0% 100%;
-}
-
-/* --- BASE STYLES --- */
 
 @layer base {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
 
-  html,
-  body {
-    @apply antialiased transition-colors duration-500 min-h-screen relative overflow-x-hidden;
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
-    max-width: 100vw;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 35 100% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 199 89% 48%;
+    /* Vibrant Blue/Cyan */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 180 100% 50%;
+    /* Pure Cyan Accent */
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+    --radius: 0.5rem;
   }
 
-  /* Global Accessibility Focus Ring */
-  :focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
   }
 
-  /* Custom Scrollbar for all themes */
-  ::-webkit-scrollbar {
-    width: 6px;
+  .neon {
+    --background: 280 40% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 280 40% 6%;
+    --card-foreground: 210 40% 98%;
+    --popover: 280 40% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 310 100% 60%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 280 40% 15%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 280 40% 15%;
+    --muted-foreground: 280 20% 70%;
+    --accent: 310 100% 60%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 280 40% 20%;
+    --input: 280 40% 20%;
+    --ring: 310 100% 60%;
   }
 
-  ::-webkit-scrollbar-track {
-    background: transparent;
+  .cyber {
+    --background: 0 0% 0%;
+    --foreground: 150 100% 50%;
+    --card: 0 0% 2%;
+    --card-foreground: 150 100% 50%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 150 100% 50%;
+    --primary: 150 100% 50%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 150 100% 50%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 150 50% 40%;
+    --accent: 150 100% 50%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 150 100% 20%;
+    --input: 150 100% 20%;
+    --ring: 150 100% 50%;
   }
 
-  ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full hover:bg-primary/50 transition-colors;
+  /* Smooth scrolling for anchor links */
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* --- UTILITY CLASSES --- */
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
 
-/* Glass Card */
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-attachment: fixed;
+  }
+}
+
+/* Glassmorphism Utilities */
+.glass {
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
 .glass-card {
-  @apply relative overflow-hidden rounded-2xl border bg-card/20 backdrop-blur-2xl transition-all duration-300;
-  border-color: hsl(var(--border) / 0.3);
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s;
 }
 
 .glass-card:hover {
-  @apply bg-card/40 border-primary/30 shadow-lg shadow-primary/5 -translate-y-1;
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* Text Gradients */
-.text-gradient {
-  @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+.glass-nav {
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* Neon Glow (Only active in Nebula/Neon theme basically, or forces effect) */
-.glow-primary {
-  box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.5);
-}
-
-.glow-text {
-  text-shadow: 0 0 10px hsl(var(--primary) / 0.5);
-}
-
-/* Scroll Animations */
-@media (prefers-reduced-motion: no-preference) {
-  .scroll-fade-in {
-    @apply opacity-0 translate-y-8 blur-sm transition-all duration-700 ease-out;
-  }
-
-  .scroll-in-view {
-    @apply opacity-100 translate-y-0 blur-none;
-  }
-}
-
-/* Advanced Hover Animations */
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes shimmer-sweep {
-  0% {
-    left: -100%;
-    transform: translateX(-100%);
-  }
-
-  100% {
-    left: 200%;
-    transform: translateX(200%);
-  }
-}
-
-@keyframes shimmer-slide {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(200%);
-  }
-}
-
-@keyframes ripple {
-  0% {
-    transform: scale(0);
-    opacity: 0.5;
-  }
-
-  100% {
-    transform: scale(4);
-    opacity: 0;
-  }
-}
-
-@keyframes pulse-glow {
-
-  0%,
-  100% {
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
-  }
-
-  50% {
-    box-shadow: 0 0 40px hsl(var(--primary) / 0.6);
-  }
+/* Animation Utilities */
+.animate-float {
+  animation: float 6s ease-in-out infinite;
 }
 
 @keyframes float {
-
-  0%,
-  100% {
-    transform: translateY(0);
+  0% {
+    transform: translateY(0px);
   }
 
   50% {
     transform: translateY(-10px);
   }
+
+  100% {
+    transform: translateY(0px);
+  }
 }
 
-@keyframes shimmer-sweep {
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+@keyframes shimmer {
   0% {
-    left: -100%;
+    background-position: -200% 0;
   }
 
   100% {
-    left: 200%;
+    background-position: 200% 0;
   }
 }
 
-/* --- THIN SHINE ANIMATIONS --- */
-@keyframes shine-thin {
+/* Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+}
+
+/* Page transition animations */
+.page-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms ease-out, transform 300ms ease-out;
+}
+
+.page-exit {
+  opacity: 1;
+}
+
+.page-exit-active {
+  opacity: 0;
+  transition: opacity 200ms ease-in;
+}
+
+/* Loading pulse animation */
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Gradient text animation */
+@keyframes gradient-shift {
   0% {
-    transform: translateX(0);
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
   }
 
   100% {
-    transform: translateX(calc(1200% / var(--shine-width, 8)));
+    background-position: 0% 50%;
   }
 }
 
-@keyframes glint {
-  0% {
-    transform: translateX(0);
-  }
-
-  100% {
-    transform: translateX(calc(800% / var(--glint-width, 15)));
-  }
-}
-
-@keyframes sweep-line {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(200%);
-  }
-}
-
-@keyframes edge-shine {
-  0% {
-    transform: translateX(-100%);
-  }
-
-  100% {
-    transform: translateX(200%);
-  }
-}
-
-/* Utility classes for thin shine */
-.animate-shine-thin {
-  animation: shine-thin var(--shine-duration, 800ms) linear infinite;
-}
-
-.animate-glint {
-  animation: glint var(--glint-duration, 2000ms) linear infinite;
-}
-
-.animate-sweep-line {
-  animation: sweep-line 600ms ease-in-out infinite;
-}
-
-.animate-edge-shine {
-  animation: edge-shine 2s ease-in-out infinite;
-}
-
-/* Preserve 3D */
-.preserve-3d {
-  transform-style: preserve-3d;
-}
-
-/* Perspective utilities */
-.perspective-1000 {
-  perspective: 1000px;
-}
-
-/* Glow effects */
-.glow-primary {
-  box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.5);
-}
-
-.glow-primary-strong {
-  box-shadow: 0 0 30px -5px hsl(var(--primary) / 0.7);
-}
-
-/* Noise texture overlay */
-.noise-overlay {
-  position: relative;
-}
-
-.noise-overlay::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  opacity: 0.03;
-  pointer-events: none;
-}
-
-/* --- MARQUEE ANIMATION --- */
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
-  }
-
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-.animate-marquee {
-  animation: marquee linear infinite;
-}
-
-/* GPU Performance Optimizations */
-.transform-gpu {
-  transform: translateZ(0);
-  backface-visibility: hidden;
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradient-shift 3s linear infinite;
 }

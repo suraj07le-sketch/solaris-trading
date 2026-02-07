@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { useMounted } from "@/hooks/useMounted";
 import { cn } from "@/lib/utils";
+// Removed unused imports
 import {
     UserPlus,
     Terminal,
@@ -13,24 +14,15 @@ import {
     Cpu,
     Shield,
     Zap,
-    Lock,
     Globe,
-    ChevronRight,
-    ArrowRight,
-    Hexagon,
     Network
 } from "lucide-react";
 
 function ThemeAdaptiveBackground() {
-    const { theme, resolvedTheme } = useTheme();
+    const { resolvedTheme } = useTheme();
     const mounted = useMounted();
-    const [currentTheme, setCurrentTheme] = useState("dark");
-
-    useEffect(() => {
-        if (mounted) {
-            setCurrentTheme(resolvedTheme || "dark");
-        }
-    }, [mounted, resolvedTheme]);
+    // Derived state instead of useEffect to avoid "set-state-in-effect" lint error
+    const currentTheme = mounted ? (resolvedTheme || "dark") : "dark";
 
     const getThemeColors = () => {
         switch (currentTheme) {
@@ -308,6 +300,31 @@ export default function SignupPage() {
         )}>
             <ThemeAdaptiveBackground />
             <ThemeToggle />
+
+            {/* Shine Animation Styles */}
+            <style jsx global>{`
+                @keyframes shimmer {
+                    100% { transform: translateX(100%); }
+                }
+                @keyframes text-shine {
+                    0% { background-position: 0% 50%; }
+                    100% { background-position: 100% 50%; }
+                }
+                .text-shine {
+                    background: linear-gradient(
+                        to right,
+                        inherit 20%,
+                        #fff 30%,
+                        #fff 70%,
+                        inherit 80%
+                    );
+                    -webkit-background-clip: text;
+                    background-clip: text;
+                    background-size: 200% auto;
+                    color: transparent;
+                    animation: text-shine 3s linear infinite;
+                }
+            `}</style>
 
             <motion.div
                 initial={{ opacity: 0, y: 20 }}

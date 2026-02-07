@@ -14,6 +14,15 @@ export const LocalStorage = {
         }
     },
 
+    saveWatchlist: (userId: string, watchlist: WatchlistItem[]): void => {
+        if (typeof window === 'undefined') return;
+        try {
+            localStorage.setItem(`${STORAGE_KEY_PREFIX}${userId}`, JSON.stringify(watchlist));
+        } catch (error) {
+            console.error("LocalStorage Save Error:", error);
+        }
+    },
+
     addToWatchlist: (userId: string, coin: Coin, assetType: 'stock' | 'crypto'): WatchlistItem | null => {
         try {
             const current = LocalStorage.getWatchlist(userId);

@@ -8,25 +8,27 @@ import {
 } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { SolarisIcon } from "@/components/ui/SolarisIcon";
 import { ThemeSwitcher } from "@/components/layout/ThemeSwitcher";
+import { Menu, X, Home, TrendingUp, Sparkles, LogIn } from "lucide-react";
 
-import { Menu, X, Palette, User, Home, TrendingUp, Sparkles, LogIn } from "lucide-react";
+const NAV_ITEMS = [
+    { name: "Home", link: "/dashboard", icon: Home },
+    { name: "Market", link: "/market", icon: TrendingUp },
+    { name: "AI Signals", link: "/predictions", icon: Sparkles },
+    { name: "Login", link: "/login", icon: LogIn },
+];
 
-export const FloatingNavbar = ({
-    className,
-}: {
-    className?: string;
-}) => {
+export const FloatingNavbar = ({ className }: { className?: string }) => {
     const { scrollYProgress } = useScroll();
     const [visible, setVisible] = useState(true);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const pathname = usePathname();
 
     useMotionValueEvent(scrollYProgress, "change", (current) => {
-        // Check if current is not undefined and is a number
         if (typeof current === "number") {
             let direction = current! - scrollYProgress.getPrevious()!;
-
             if (scrollYProgress.get() < 0.05) {
                 setVisible(true);
             } else {
@@ -40,107 +42,94 @@ export const FloatingNavbar = ({
     });
 
     return (
-        <>
+        <AnimatePresence mode="wait">
             <motion.div
-                initial={{
-                    opacity: 0,
-                    y: 0,
-                }}
+                initial={{ opacity: 0, y: -20 }}
                 animate={{
-                    y: 0,
-                    opacity: 1,
+                    y: visible ? 0 : -100,
+                    opacity: visible ? 1 : 0,
                 }}
-                transition={{
-                    duration: 0.5,
-                    ease: "easeOut",
-                }}
-                style={{
-                    backdropFilter: "blur(16px) saturate(180%)",
-                }}
+                transition={{ duration: 0.3 }}
                 className={cn(
-                    "flex max-w-fit fixed top-4 inset-x-0 mx-auto md:left-auto md:right-6 md:mx-0 border border-border/40 rounded-full bg-card/80 shadow-lg z-[5000] px-4 py-2 pr-2 items-center justify-center space-x-4",
+                    "fixed top-6 inset-x-0 mx-auto max-w-fit z-[5000] px-4 py-2 border border-white/10 rounded-full bg-black/40 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.5)] flex items-center space-x-6",
                     className
                 )}
             >
-                {/* Desktop Links - Hidden on Mobile */}
-                <div className="hidden md:flex items-center gap-2">
-                    <Link href="/dashboard" className="relative px-4 py-2 rounded-full text-sm font-bold text-muted-foreground hover:text-primary transition-all duration-200 flex items-center gap-2 hover:bg-muted/50">
-                        <Home className="w-4 h-4" />
-                        <span>Home</span>
-                    </Link>
-                    <Link href="/market" className="relative px-4 py-2 rounded-full text-sm font-bold text-muted-foreground hover:text-primary transition-all duration-200 flex items-center gap-2 hover:bg-muted/50">
-                        <TrendingUp className="w-4 h-4" />
-                        <span>Market</span>
-                    </Link>
-                    <Link href="/predictions" className="relative px-4 py-2 rounded-full text-sm font-bold text-muted-foreground hover:text-primary transition-all duration-200 flex items-center gap-2 hover:bg-muted/50">
-                        <Sparkles className="w-4 h-4" />
-                        <span>AI Signals</span>
-                    </Link>
-                    <Link href="/login" className="relative px-4 py-2 rounded-full text-sm font-bold text-muted-foreground hover:text-primary transition-all duration-200 flex items-center gap-2 hover:bg-muted/50">
-                        <LogIn className="w-4 h-4" />
-                        <span>Login</span>
-                    </Link>
+                {/* Logo Section */}
+                <div className="flex items-center gap-2">
+                    <div className="relative group">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full blur opacity-40 group-hover:opacity-100 transition duration-500"></div>
+                        <SolarisIcon className="relative w-8 h-8 text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+                    </div>
+                    <span className="hidden md:block font-bold text-sm tracking-widest text-white uppercase font-mono">
+                        SHURSUNT
+                    </span>
                 </div>
 
-                {/* Mobile Header: Logo/Icon + Brand + Menu Button */}
-                <div className="flex md:hidden items-center justify-between w-full  gap-2.5">
-                    <div className="flex items-center gap-4">
-                        <SolarisIcon className="w-8 h-8 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]" />
-                        <span className="font-bold text-sm tracking-wider text-foreground">SHURSUNT</span>
-                    </div>
+                {/* Desktop Links */}
+                <div className="hidden md:flex items-center gap-2">
+                    {NAV_ITEMS.map((item, idx) => {
+                        const isActive = pathname.startsWith(item.link);
+                        return (
+                            <Link
+                                key={idx}
+                                href={item.link}
+                                className={cn(
+                                    "relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-2 group",
+                                    isActive
+                                        ? "text-white bg-white/10 shadow-[inset_0_0_10px_rgba(255,255,255,0.1)] border border-white/5"
+                                        : "text-neutral-400 hover:text-white hover:bg-white/5"
+                                )}
+                            >
+                                <item.icon
+                                    className={cn(
+                                        "w-4 h-4 transition-colors duration-300",
+                                        isActive ? "text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]" : "group-hover:text-cyan-300"
+                                    )}
+                                />
+                                <span>{item.name}</span>
+                                {isActive && (
+                                    <span className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50" />
+                                )}
+                            </Link>
+                        );
+                    })}
+                </div>
+
+                {/* Theme & Mobile Toggle */}
+                <div className="flex items-center gap-4 pl-4 border-l border-white/10">
+                    <ThemeSwitcher />
+                    
                     <button
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
-                        className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all duration-200"
-                        aria-label="Toggle menu"
+                        className="md:hidden p-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors"
                     >
-                        {isMenuOpen ? <X className="w-5 h-5 text-foreground" /> : <Menu className="w-5 h-5 text-foreground" />}
+                        {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
                     </button>
-                </div>
-
-                {/* Theme Toggle Button (Desktop: Always visible) */}
-                <div className="hidden md:block pl-2 border-l border-border/50">
-                    <ThemeSwitcher />
                 </div>
             </motion.div>
 
-            {/* Mobile Menu Dropdown */}
-            <AnimatePresence>
-                {isMenuOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                        transition={{ type: "spring", duration: 0.4 }}
-                        className="fixed top-24 right-4 left-4 md:hidden bg-card/90 backdrop-blur-2xl border border-border/50 rounded-2xl p-4 z-[4999] shadow-2xl flex flex-col gap-2"
-                    >
-                        <Link href="/dashboard" onClick={() => setIsMenuOpen(false)} className="px-4 py-3 rounded-xl hover:bg-muted/50 flex items-center gap-3 text-sm font-bold text-foreground">
-                            <Home className="w-4 h-4" />
-                            <span>Home</span>
+            {/* Mobile Menu */}
+            {isMenuOpen && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                    className="fixed top-24 left-4 right-4 z-[4999] bg-neutral-900/90 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-2xl md:hidden flex flex-col gap-2"
+                >
+                    {NAV_ITEMS.map((item, idx) => (
+                        <Link
+                            key={idx}
+                            href={item.link}
+                            onClick={() => setIsMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-neutral-300 hover:text-white transition-colors"
+                        >
+                            <item.icon className="w-5 h-5 text-cyan-400" />
+                            <span className="font-medium">{item.name}</span>
                         </Link>
-                        <Link href="/market" onClick={() => setIsMenuOpen(false)} className="px-4 py-3 rounded-xl hover:bg-muted/50 flex items-center gap-3 text-sm font-bold text-foreground">
-                            <TrendingUp className="w-4 h-4" />
-                            <span>Market</span>
-                        </Link>
-                        <Link href="/predictions" onClick={() => setIsMenuOpen(false)} className="px-4 py-3 rounded-xl hover:bg-muted/50 flex items-center gap-3 text-sm font-bold text-foreground">
-                            <Sparkles className="w-4 h-4" />
-                            <span>AI Signals</span>
-                        </Link>
-                        <Link href="/login" onClick={() => setIsMenuOpen(false)} className="px-4 py-3 rounded-xl hover:bg-muted/50 flex items-center gap-3 text-sm font-bold text-foreground">
-                            <LogIn className="w-4 h-4" />
-                            <span>Login</span>
-                        </Link>
-
-                        <div className="h-px bg-border/50 my-1" />
-
-                        <div className="flex items-center justify-between px-4 py-2">
-                            <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Theme</span>
-                            <ThemeSwitcher />
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-        </>
+                    ))}
+                </motion.div>
+            )}
+        </AnimatePresence>
     );
 };
-
-

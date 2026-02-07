@@ -1,0 +1,12 @@
+
+C:\Users\sonka\OneDrive\Desktop\Trading\src\components\auth\AuthForm.tsx
+    6:18  warning  'AnimatePresence' is defined but never used  @typescript-eslint/no-unused-vars
+   15:5   warning  'Sparkles' is defined but never used         @typescript-eslint/no-unused-vars
+   16:5   warning  'Zap' is defined but never used              @typescript-eslint/no-unused-vars
+   18:5   warning  'AlertCircle' is defined but never used      @typescript-eslint/no-unused-vars
+   20:5   warning  'MailCheck' is defined but never used        @typescript-eslint/no-unused-vars
+   44:12  warning  'error' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  228:23  error    Unexpected any. Specify a different type     @typescript-eslint/no-explicit-any
+
+✖ 7 problems (1 error, 6 warnings)
+

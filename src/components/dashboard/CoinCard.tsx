@@ -61,6 +61,27 @@ export default function CoinCard({ coin }: CoinCardProps) {
         }
     };
 
+    const handlePrefetch = async () => {
+        if (!user || predicting) return;
+
+        // Silent prefetch - no toast, no loading state
+        try {
+            fetch('/api/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    coinId: coin.id,
+                    symbol: coin.symbol.toUpperCase(),
+                    type: coin.asset_type || 'crypto',
+                    userId: user.id,
+                    prefetch: true // Add a hint to the API if needed
+                })
+            });
+        } catch (e) {
+            // Silently fail prefetch
+        }
+    };
+
     const handlePredict = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
@@ -73,12 +94,25 @@ export default function CoinCard({ coin }: CoinCardProps) {
         setPredicting(true);
 
         try {
-            // Redirect immediately with query param to trigger prediction on destination
-            router.push(`/predictions?predict=${coin.symbol.toUpperCase()}&type=${coin.asset_type || 'crypto'}`);
+            // Before redirecting, ensure we've at least started the request
+            await fetch('/api/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    coinId: coin.id,
+                    symbol: coin.symbol.toUpperCase(),
+                    type: coin.asset_type || 'crypto',
+                    userId: user.id
+                })
+            });
+
+            // Redirect with poll flag
+            router.push(`/predictions?poll=true&type=${coin.asset_type || 'crypto'}&symbol=${coin.symbol.toUpperCase()}`);
 
         } catch (err) {
             console.error("Prediction Error:", err);
-            alert("Failed to start prediction");
+            // Fallback to direct navigation if API fails
+            router.push(`/predictions?type=${coin.asset_type || 'crypto'}`);
         } finally {
             setPredicting(false);
         }
@@ -86,6 +120,7 @@ export default function CoinCard({ coin }: CoinCardProps) {
 
     return (
         <motion.div
+            onMouseEnter={handlePrefetch}
             whileHover={{ scale: 1.05, rotateX: 5, rotateY: 5 }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

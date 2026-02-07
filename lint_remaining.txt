@@ -1,0 +1,40 @@
+
+C:\Users\sonka\OneDrive\Desktop\Trading\src\app\[locale]\(protected)\predictions\page.tsx
+   13:10  warning  'Skeleton' is defined but never used      @typescript-eslint/no-unused-vars
+   88:52  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  122:26  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  129:51  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  142:22  warning  'e' is defined but never used             @typescript-eslint/no-unused-vars
+  148:41  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:33  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  227:58  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  240:58  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  517:72  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\sonka\OneDrive\Desktop\Trading\src\app\api\predict\route.ts
+    5:10   warning  'NextRequest' is defined but never used                     @typescript-eslint/no-unused-vars
+   14:46   warning  'MLMarketData' is defined but never used                    @typescript-eslint/no-unused-vars
+   22:7    warning  'ALPHA_VANTAGE_API_KEY' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   26:33   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+   27:41   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+   31:41   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+   34:49   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+   37:7    warning  'modelCache' is assigned a value but never used             @typescript-eslint/no-unused-vars
+   38:7    warning  'priceCache' is assigned a value but never used             @typescript-eslint/no-unused-vars
+   39:7    warning  'CACHE_DURATION' is assigned a value but never used         @typescript-eslint/no-unused-vars
+  247:47   warning  'expectedPrice' is defined but never used                   @typescript-eslint/no-unused-vars
+  258:58   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  260:59   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  322:67   warning  'expectedPrice' is defined but never used                   @typescript-eslint/no-unused-vars
+  332:9    error    'baseSymbol' is never reassigned. Use 'const' instead       prefer-const
+  355:14   warning  'e' is defined but never used                               @typescript-eslint/no-unused-vars
+  388:140  error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  390:13   error    'marketData' is never reassigned. Use 'const' instead       prefer-const
+  455:17   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  538:39   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  574:27   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+  581:17   error    Unexpected any. Specify a different type                    @typescript-eslint/no-explicit-any
+
+✖ 32 problems (20 errors, 12 warnings)
+  2 errors and 0 warnings potentially fixable with the `--fix` option.
+

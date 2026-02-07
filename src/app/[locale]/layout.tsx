@@ -108,10 +108,10 @@ export default async function LocaleLayout({
                 <NextIntlClientProvider messages={messages}>
                     <NextTopLoader
                         color="hsl(var(--primary))"
-                        initialPosition={0.08}
+                        initialPosition={0.15}
                         showSpinner={false}
-                        speed={200}
-                        shadow="0 0 10px hsl(var(--primary)),0 0 5px hsl(var(--primary))"
+                        speed={150}
+                        height={2}
                     />
 
                     <div className="fixed inset-0 z-[-1] pointer-events-none">

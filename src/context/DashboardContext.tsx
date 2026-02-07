@@ -119,9 +119,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
 
             // Trigger background sync to ensure data is fresh for next time
             // We don't await this so it doesn't block the initial dashboard load
-            // OPTIMIZATION: Removed auto-sync on load to speed up dashboard. 
-            // Sync should be handled by a dedicated background worker or manual trigger.
-            // fetch('/api/sync').catch(e => console.error("Background sync failed:", e));
+            console.log("[Dashboard] Triggering background sync via /api/sync");
+            fetch('/api/sync')
+                .then(res => res.json())
+                .then(res => console.log("[Dashboard] Sync Result:", res))
+                .catch(e => console.error("[Dashboard] Background sync failed:", e));
 
             return {
                 watchlist: list,
@@ -134,8 +136,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             revalidateOnFocus: true,
             revalidateOnMount: true,
             revalidateOnReconnect: true,
-            refreshInterval: 30000, // 30 seconds for dashboard
-            dedupingInterval: 5000,
+            refreshInterval: 15000, // Faster refresh for dashboard (15s)
+            dedupingInterval: 2000,  // Aggressive deduping for snappy navigation
+            keepPreviousData: true
         }
     );
 

@@ -2,76 +2,82 @@
 
 import { useEffect, useRef, memo } from 'react';
 
-export default memo(function TradingViewWidget({ symbol, className, style }: { symbol: string, className?: string, style?: React.CSSProperties }) {
-  const container = useRef<HTMLDivElement>(null);
+// Use a unique ID generator if needed, but for simplicity here we assume one instance or manage it.
+// To support multiple, we'd need unique IDs.
+
+interface TradingViewWidgetProps {
+  symbol: string;
+  theme?: 'dark' | 'light';
+  autosize?: boolean;
+  interval?: string;
+  className?: string;
+  style?: React.CSSProperties;
+}
+
+const TradingViewWidget = memo(({ 
+  symbol, 
+  theme = 'dark', 
+  autosize = true, 
+  interval = 'D',
+  className,
+  style
+}: TradingViewWidgetProps) => {
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const currentContainer = container.current;
-    if (!currentContainer) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    // Clear previous widget
-    currentContainer.innerHTML = '';
+    // Clean up previous widget
+    container.innerHTML = '';
 
-    // Generate a unique ID to ensure the script finds the correct container
-    const containerId = `tradingview_${Math.random().toString(36).substring(2, 11)}`;
-
-    // Create widget container div
+    // Create a wrapper div for the widget
     const widgetContainer = document.createElement('div');
     widgetContainer.className = 'tradingview-widget-container__widget';
-    widgetContainer.id = containerId; // Assign the ID
     widgetContainer.style.height = '100%';
     widgetContainer.style.width = '100%';
-    currentContainer.appendChild(widgetContainer);
+    container.appendChild(widgetContainer);
 
-    // Create script
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-    script.type = "text/javascript";
+    const script = document.createElement('script');
+    script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+    script.type = 'text/javascript';
     script.async = true;
     script.innerHTML = JSON.stringify({
-      "width": "100%",
-      "height": "100%",
-      "symbol": symbol,
-      "interval": "D",
-      "timezone": "Asia/Kolkata",
-      "theme": "dark",
-      "style": "1",
-      "locale": "en",
-      "enable_publishing": false,
-      "backgroundColor": "rgba(0, 0, 0, 1)",
-      "gridColor": "rgba(255, 255, 255, 0.05)",
-      "allow_symbol_change": true,
-      "container_id": containerId, // Pass the ID to the widget
-      "calendar": false,
-      "support_host": "https://www.tradingview.com"
+      autosize: true,
+      symbol: symbol,
+      interval: interval,
+      timezone: "Asia/Kolkata",
+      theme: theme,
+      style: "1",
+      locale: "en",
+      enable_publishing: false,
+      backgroundColor: "rgba(0, 0, 0, 1)",
+      gridColor: "rgba(255, 255, 255, 0.06)",
+      hide_top_toolbar: false,
+      hide_legend: false,
+      save_image: false,
+      calendar: false,
+      hide_volume: false,
+      support_host: "https://www.tradingview.com"
     });
 
-    // Append script (this triggers the widget load)
-    // Use requestAnimationFrame to ensure the DOM has updated
-    const timer = setTimeout(() => {
-      if (currentContainer && document.getElementById(containerId)) {
-        currentContainer.appendChild(script);
-      }
-    }, 100);
+    container.appendChild(script);
 
     return () => {
-      clearTimeout(timer);
-      if (currentContainer) {
-        currentContainer.innerHTML = '';
-      }
+      if (container) container.innerHTML = '';
     };
-  }, [symbol]);
-
-  // If style is provided, use it. Otherwise default to full width/height of parent.
-  const containerStyle = style ? { width: "100%", ...style } : { width: "100%", height: "100%" };
+  }, [symbol, theme, interval]); // Re-run if these props change
 
   return (
-    <div
-      className={`tradingview-widget-container ${className || ""}`}
-      ref={container}
-      style={containerStyle}
+    <div 
+      className={`tradingview-widget-container overflow-hidden rounded-xl border border-white/10 shadow-2xl ${className}`} 
+      ref={containerRef} 
+      style={{ height: '500px', width: '100%', ...style }} // Default height
     >
-      {/* Widget and Script will be injected here */}
+      <div className="tradingview-widget-container__widget" style={{ height: '100%', width: '100%' }}></div>
     </div>
   );
 });
+
+TradingViewWidget.displayName = 'TradingViewWidget';
+export default TradingViewWidget;

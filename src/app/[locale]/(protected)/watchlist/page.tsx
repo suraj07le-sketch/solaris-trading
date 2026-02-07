@@ -6,14 +6,13 @@ import { useAuth } from "@/context/AuthContext";
 import { WatchlistItem } from "@/types";
 import { LocalStorage } from "@/lib/storage";
 import "crypto-icons/font.css"; // Ensure icons are loaded
-import { Trash2, Brain } from "lucide-react";
-import Image from "next/image";
-import { getLogoUrl } from "@/lib/imageUtils";
-import { motion } from "framer-motion";
-import { toast } from "sonner"; // Added import
+import { toast } from "sonner";
+import useSWR, { SWRConfiguration } from "swr";
+import { Trash2, Brain, Sparkles, RefreshCw, Loader2 } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
 import AssetIcon from "@/components/dashboard/AssetIcon";
 
 // Sub-component for individual watchlist items
@@ -269,18 +268,72 @@ const initCryptoCache = async () => {
     }
 };
 
+const fetcher = async (userId: string) => {
+    if (!userId) return [];
+
+    // 1. Get Local Data (Instant)
+    const localData = LocalStorage.getWatchlist(userId);
+
+    try {
+        // 2. Fetch Supabase Data
+        const { data, error } = await supabase
+            .from("watchlist")
+            .select("*")
+            .eq("user_id", userId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // 3. Merge Strategies
+        const combined = Array.isArray(data) ? [...(data as WatchlistItem[])] : [];
+
+        if (Array.isArray(localData)) {
+            localData.forEach((localItem: any) => {
+                if (!combined.find(c => c.coin_id === localItem.coin_id)) {
+                    combined.push(localItem);
+                }
+            });
+        }
+
+        // Sync back to local
+        LocalStorage.saveWatchlist(userId, combined);
+        return combined;
+    } catch (err: any) {
+        console.error("Watchlist fetch error details:", {
+            message: err.message,
+            details: err.details,
+            hint: err.hint,
+            code: err.code,
+            stack: err.stack
+        });
+        toast.error("Using offline data");
+        return localData || [];
+    }
+};
+
 export default function WatchlistPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-    const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'stock' | 'crypto'>('stock');
 
-    // Auto-switch tab if one is empty
+    const swrConfig: SWRConfiguration = {
+        revalidateOnFocus: true,
+        revalidateOnReconnect: true,
+        dedupingInterval: 5000,
+        keepPreviousData: true,
+    };
+
+    const { data: watchlist = [], error, isLoading, isValidating, mutate } = useSWR(
+        user ? user.id : null,
+        fetcher,
+        swrConfig
+    );
+
+    // Auto-switch tab logic
     useEffect(() => {
-        if (!loading && watchlist.length > 0) {
-            const hasStocks = watchlist.some(i => (i.asset_type || 'crypto') === 'stock');
-            const hasCrypto = watchlist.some(i => (i.asset_type || 'crypto') === 'crypto');
+        if (!isLoading && watchlist.length > 0) {
+            const hasStocks = watchlist.some((i: any) => (i.asset_type || 'crypto') === 'stock');
+            const hasCrypto = watchlist.some((i: any) => (i.asset_type || 'crypto') === 'crypto');
 
             if (!hasStocks && hasCrypto && activeTab === 'stock') {
                 setActiveTab('crypto');
@@ -288,177 +341,54 @@ export default function WatchlistPage() {
                 setActiveTab('stock');
             }
         }
-    }, [loading, watchlist.length]);
+    }, [isLoading, watchlist.length, activeTab]); // Added activeTab to deps to suppress lint, logic checks self
 
-    const filteredWatchlist = watchlist.filter(item =>
-        // Filter by asset_type. Fallback to 'crypto' for old items without type if needed, or 'stock' based on assumption. 
-        // For now, let's assume if type is missing, it shows in both or one. We'll strict check.
-        (item.asset_type || 'crypto') === activeTab
-    );
-
-    const fetchWatchlist = async (signal?: AbortSignal) => {
-        if (!user) {
-            if (!signal?.aborted) setLoading(false);
-            return;
-        }
-
-        // 1. Fetch from LocalStorage (Instant)
-        const localData = LocalStorage.getWatchlist(user.id);
-        if (localData.length > 0) {
-            setWatchlist(localData);
-        }
-
-        // 2. Fetch from Supabase (Sync/Backup)
-        try {
-            const query = supabase
-                .from("watchlist")
-                .select("*")
-                .eq("user_id", user.id);
-
-            if (signal) {
-                query.abortSignal(signal);
-            }
-
-            const { data, error } = await query;
-
-            if (signal?.aborted) return;
-
-            if (data) {
-                // Sort by created_at descending (newest first)
-                const sortedData = (data as WatchlistItem[]).sort((a, b) => {
-                    const dateA = new Date(a.created_at || 0).getTime();
-                    const dateB = new Date(b.created_at || 0).getTime();
-                    return dateB - dateA; // Newest first
-                });
-                const combined: WatchlistItem[] = [...sortedData];
-                (localData as any[]).forEach(localItem => {
-                    if (!combined.find(c => c.coin_id === localItem.coin_id)) {
-                        combined.push(localItem);
-                    }
-                });
-                setWatchlist(combined);
-            }
-        } catch (err: any) {
-            if (err.name !== 'AbortError') {
-                console.error("Error fetching watchlist", err);
-            }
-        } finally {
-            if (!signal?.aborted) {
-                setLoading(false);
-            }
-        }
-    };
-
-    const fixWatchlistTypes = async (currentWatchlist: WatchlistItem[], signal?: AbortSignal) => {
-        // Use cached crypto IDs for faster checks
-        const cryptoIdSet = getCryptoIdSet();
-
-        let hasUpdates = false;
-        const updatedList = currentWatchlist.map(item => {
-            const currentType = item.asset_type || 'crypto';
-            if (currentType === 'stock' && cryptoIdSet.has(item.coin_id)) {
-                hasUpdates = true;
-                // Fire and forget Supabase update
-                supabase.from('watchlist').update({ asset_type: 'crypto' }).eq('id', item.id)
-                    .catch(() => { });
-                return { ...item, asset_type: 'crypto' as const };
-            }
-            return item;
-        });
-
-        if (hasUpdates) {
-            console.log("Fixed misclassified watchlist items");
-            if (!signal?.aborted) {
-                setWatchlist(updatedList);
-                if (user?.id) {
-                    localStorage.setItem(`nexus_watchlist_${user.id}`, JSON.stringify(updatedList));
-                }
-            }
-        }
-    };
-
+    // Realtime Subscription
     useEffect(() => {
         if (!user) return;
-
-        // Initialize crypto cache on first load
-        initCryptoCache();
-
-        const controller = new AbortController();
-
-        const load = async () => {
-            await fetchWatchlist(controller.signal);
-        };
-        load();
-
         const channel = supabase
             .channel('watchlist-realtime')
             .on(
                 'postgres_changes',
-                { event: '*', schema: 'public', table: 'watchlist', filter: `user_id=eq.${user?.id}` },
-                (payload: any) => {
-                    if (payload.eventType === 'INSERT') {
-                        setWatchlist((prev) => {
-                            if (prev.find(i => i.id === payload.new.id)) return prev;
-                            // Add new item at the beginning (newest first)
-                            return [payload.new as WatchlistItem, ...prev];
-                        });
-                    } else if (payload.eventType === 'DELETE') {
-                        setWatchlist((prev) => prev.filter((item) => item.id !== payload.old.id));
-                    }
+                { event: '*', schema: 'public', table: 'watchlist', filter: `user_id=eq.${user.id}` },
+                () => {
+                    mutate(); // Simply revalidate
                 }
             )
             .subscribe();
 
-        return () => {
-            controller.abort();
-            supabase.removeChannel(channel);
-        };
-    }, [user]);
+        return () => { supabase.removeChannel(channel); };
+    }, [user, mutate]);
 
-    // Refresh on focus
-    useEffect(() => {
-        const handleFocus = () => {
-            if (user) {
-                const controller = new AbortController();
-                fetchWatchlist(controller.signal);
-            }
-        };
-        window.addEventListener('focus', handleFocus);
-        return () => window.removeEventListener('focus', handleFocus);
-    }, [user]);
-
-    useEffect(() => {
-        const controller = new AbortController();
-        if (watchlist.length > 0 && !loading) {
-            fixWatchlistTypes(watchlist, controller.signal).catch(e => {
-                if (e.name !== 'AbortError') console.error(e);
-            });
-        }
-        return () => {
-            controller.abort();
-        };
-    }, [watchlist.length, loading]);
+    const filteredWatchlist = watchlist.filter((item: any) =>
+        (item.asset_type || 'crypto') === activeTab
+    );
 
     const handleDelete = async (id: string) => {
         if (!user) return;
 
-        // 1. Delete from LocalStorage
-        const itemToDelete = watchlist.find(i => i.id === id);
-        if (itemToDelete) {
-            LocalStorage.removeFromWatchlist(user.id, itemToDelete.coin_id);
+        // Optimistic delete
+        const prevData = watchlist;
+        const newData = watchlist.filter((i: any) => i.id !== id);
+
+        // Update LocalStorage immediately
+        const itemToDelete = watchlist.find((i: any) => i.id === id);
+        if (itemToDelete) LocalStorage.removeFromWatchlist(user.id, itemToDelete.coin_id);
+
+        mutate(newData, false); // Update SWR cache without revalidating yet
+
+        try {
+            await supabase.from("watchlist").delete().eq("id", id);
+            mutate(); // Revalidate to be sure
+        } catch (e) {
+            toast.error("Failed to delete");
+            mutate(prevData, false); // Revert
         }
-
-        // Optimistic Update
-        setWatchlist((prev) => prev.filter((item) => item.id !== id));
-
-        // 2. Delete from Supabase
-        await supabase.from("watchlist").delete().eq("id", id);
     };
 
-    if (loading) {
+    if (isLoading && !watchlist.length) {
         return (
             <div className="flex flex-col gap-6">
-                {/* Header Skeleton */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <Skeleton className="h-10 w-48" />
                     <Skeleton className="h-10 w-48 rounded-xl" />
@@ -476,42 +406,70 @@ export default function WatchlistPage() {
         <div className="flex flex-col gap-6">
             {/* Header & Tabs */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600">
+                <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-600 flex items-center gap-3">
                     My Watchlist
                 </h1>
 
-                <div className="flex items-center p-1 bg-card border border-border rounded-xl w-fit">
-                    {(['stock', 'crypto'] as const).map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`relative px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === tab ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-                                }`}
-                        >
-                            {activeTab === tab && (
-                                <motion.div
-                                    layoutId="activeTab"
-                                    className="absolute inset-0 bg-primary rounded-lg shadow-lg"
-                                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                                />
-                            )}
-                            <span className="relative z-10 capitalize">{tab === 'stock' ? 'Stocks' : 'Crypto'}</span>
-                        </button>
-                    ))}
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => mutate()}
+                        disabled={isValidating}
+                        className="p-2 bg-card/50 backdrop-blur-sm rounded-full border border-border/50 hover:bg-accent/50 transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-5 h-5 ${isValidating ? 'animate-spin' : ''}`} />
+                    </button>
+
+                    <div className="flex items-center p-1 bg-card border border-border rounded-xl w-fit">
+                        {(['stock', 'crypto'] as const).map((tab) => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`relative px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === tab ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                                    }`}
+                            >
+                                {activeTab === tab && (
+                                    <motion.div
+                                        layoutId="activeTab"
+                                        className="absolute inset-0 bg-primary rounded-lg shadow-lg"
+                                        transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                                    />
+                                )}
+                                <span className="relative z-10 capitalize">{tab === 'stock' ? 'Stocks' : 'Crypto'}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
+            {/* Status indicator */}
+            {isValidating && watchlist.length > 0 && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Updating...
+                </div>
+            )}
+
             <div className="grid gap-4">
-                {filteredWatchlist.map((item) => (
+                {filteredWatchlist.map((item: any) => (
                     <WatchlistRow key={item.id} item={item} onDelete={handleDelete} />
                 ))}
 
                 {filteredWatchlist.length === 0 && (
-                    <div className="text-center text-muted-foreground py-20 bg-card/60 rounded-2xl border border-dashed border-border">
-                        <p>No {activeTab}s in your watchlist.</p>
+                    <div className="text-center py-20 px-4">
+                        <motion.div
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-primary/10 mb-6 relative group"
+                        >
+                            <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl group-hover:blur-2xl transition-all duration-500" />
+                            <Sparkles className="w-12 h-12 text-primary relative z-10" />
+                        </motion.div>
+                        <h3 className="text-2xl font-bold mb-3">No {activeTab}s in watchlist</h3>
+                        <p className="text-muted-foreground max-w-sm mx-auto mb-8">
+                            Track your favorite {activeTab === 'stock' ? 'stocks' : 'crypto assets'} here.
+                        </p>
                         <button
                             onClick={() => router.push(activeTab === 'stock' ? '/stocks' : '/crypto')}
-                            className="mt-4 px-4 py-2 bg-primary/20 text-primary rounded-lg hover:bg-primary/30 transition-colors font-bold text-sm"
+                            className="px-8 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:opacity-90 transition-all shadow-lg hover:shadow-primary/25 active:scale-95"
                         >
                             Browse {activeTab === 'stock' ? 'Stocks' : 'Crypto'}
                         </button>

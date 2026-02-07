@@ -3,7 +3,7 @@
 import { Check, CreditCard, Zap, Shield } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-
+import { GlassCard } from "@/components/ui/GlassCard"; // Import GlassCard
 
 export default function BillingPage() {
     const plans = [
@@ -79,8 +79,8 @@ export default function BillingPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
                 {plans.map((plan) => (
                     <motion.div variants={itemVariants} key={plan.name}>
-                        <div className={cn(
-                            "solaris-card relative h-full p-8 flex flex-col border-border bg-card/60 backdrop-blur-md group transition-all duration-300 overflow-visible",
+                        <GlassCard className={cn(
+                            "relative h-full p-8 flex flex-col group transition-all duration-300 overflow-visible",
                             plan.recommended ? "border-primary/60 shadow-2xl shadow-primary/10" : "hover:border-border/80"
                         )}>
                             {plan.recommended && (
@@ -123,7 +123,7 @@ export default function BillingPage() {
                             )}>
                                 Get Started
                             </button>
-                        </div>
+                        </GlassCard>
                     </motion.div>
                 ))}
             </div>

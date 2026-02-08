@@ -32,29 +32,29 @@ export function MarketIndices() {
     }, []);
 
     return (
-        <div className="flex gap-4 mb-8 overflow-x-auto no-scrollbar pb-2">
+        <div className="flex flex-col md:flex-row gap-4 mb-8">
             {indices.map((idx) => (
                 <motion.div
                     key={idx.name}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="flex-shrink-0 min-w-[240px] bg-secondary/20 backdrop-blur-xl border border-white/5 rounded-3xl p-5 shadow-xl"
+                    className="w-full md:w-auto md:min-w-[240px] flex-shrink-0 bg-card/40 dark:bg-secondary/20 backdrop-blur-xl border border-border/50 dark:border-white/5 rounded-3xl p-5 shadow-xl"
                 >
                     <div className="flex justify-between items-start mb-2">
                         <div className="flex items-center gap-2">
                             <div className={`p-1.5 rounded-lg ${idx.status === 'UP' ? 'bg-green-500/20' : 'bg-red-500/20'}`}>
-                                <Activity size={14} className={idx.status === 'UP' ? 'text-green-400' : 'text-red-400'} />
+                                <Activity size={14} className={idx.status === 'UP' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
                             </div>
-                            <span className="text-xs font-black uppercase tracking-widest opacity-60">{idx.name}</span>
+                            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">{idx.name}</span>
                         </div>
-                        <div className={`text-[10px] font-black px-2 py-0.5 rounded-md ${idx.status === 'UP' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                        <div className={`text-[10px] font-black px-2 py-0.5 rounded-md ${idx.status === 'UP' ? 'bg-green-500/20 text-green-700 dark:text-green-400' : 'bg-red-500/20 text-red-700 dark:text-red-400'}`}>
                             {idx.status === 'UP' ? '+' : ''}{idx.percent}%
                         </div>
                     </div>
 
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black text-white">{idx.value.toLocaleString()}</span>
-                        <div className={`flex items-center gap-1 text-xs font-bold ${idx.status === 'UP' ? 'text-green-400' : 'text-red-400'}`}>
+                        <span className="text-2xl font-black text-foreground">{idx.value.toLocaleString()}</span>
+                        <div className={`flex items-center gap-1 text-xs font-bold ${idx.status === 'UP' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {idx.status === 'UP' ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                             {idx.change.toFixed(2)}
                         </div>

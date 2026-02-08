@@ -7,7 +7,10 @@ import { SolarisIcon } from "@/components/ui/SolarisIcon";
 import { AboutSection } from "@/components/home/AboutSection";
 import { GlowingFeatures } from "@/components/aceternity/GlowingFeatures";
 import { motion } from "framer-motion";
+import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
+
+const NeuralFluxBackground = dynamic(() => import('@/components/ui/NeuralFluxBackground'), { ssr: false });
 
 export default function Home() {
   const t = useTranslations('Home');
@@ -23,7 +26,9 @@ export default function Home() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-background text-foreground transition-colors duration-500 overflow-x-hidden selection:bg-primary/30">
+    <main className="min-h-screen bg-background text-foreground transition-colors duration-500 overflow-x-hidden selection:bg-primary/30 relative">
+      <NeuralFluxBackground />
+
       {/* Global spotlight effect */}
       <div
         className="fixed pointer-events-none inset-0 z-50 opacity-30"

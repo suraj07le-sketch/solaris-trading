@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import useSWR from "swr";
-import { swrFetcher } from "@/lib/swr-fetcher";
+import { useMutualFunds } from "@/hooks/useQueries";
 import { analyzeFundConviction } from "@/lib/fundLogic";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Shield, PieChart, BrainCircuit } from "lucide-react";
@@ -19,10 +18,7 @@ export default function MutualFundExplorer() {
     const showInitial = debouncedSearch.length < 3;
     const url = showInitial ? null : `https://stock.indianapi.in/mutual_fund_search?query=${debouncedSearch}`;
 
-    const { data: rawFunds, isValidating } = useSWR(url, swrFetcher, {
-        revalidateOnFocus: false,
-        dedupingInterval: 60000,
-    });
+    const { data: rawFunds, isLoading: isValidating } = useMutualFunds(debouncedSearch);
 
     const funds = useMemo(() => {
         if (showInitial) {

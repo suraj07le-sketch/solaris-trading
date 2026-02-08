@@ -60,7 +60,10 @@ export function SolarisButton({
             {...props}
         >
             {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-            {!isLoading && Icon && <Icon className={cn("w-4 h-4", variant === "default" ? "w-5 h-5" : "")} />}
+            {!isLoading && Icon && (() => {
+                const IconComponent = Icon as any;
+                return <IconComponent className={cn("w-4 h-4", variant === "default" ? "w-5 h-5" : "")} />;
+            })()}
             {children}
         </HoverBorderGradient>
     );

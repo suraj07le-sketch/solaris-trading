@@ -3,6 +3,9 @@
 import { motion } from "framer-motion";
 import { BrainCircuit, CheckCircle, Clock, TrendingDown, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
+import Tilt from "react-parallax-tilt";
+import { usePerformanceTier } from "@/hooks/usePerformanceTier";
+import { Prediction } from "@/types/prediction";
 
 // Helper to clean up messy coin symbols (e.g. TRXUSDTUSD -> TRX)
 const cleanSymbol = (symbol: string | null | undefined) => {
@@ -47,7 +50,7 @@ const safeFormatDate = (dateString: string | null | undefined) => {
 };
 
 interface PredictionCardProps {
-    pred: any;
+    pred: Prediction;
     isStock: boolean;
 }
 
@@ -59,30 +62,15 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
     const borderColor = isBullish ? 'hover:border-green-500/30' : 'hover:border-red-500/30';
     const currency = isStock ? '₹' : '$';
 
-    return (
-        <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02 }}
-            className={`
-                group relative flex flex-col p-6 rounded-3xl overflow-hidden
-                bg-card/40 backdrop-blur-xl
-                border border-border/50
-                transition-all duration-300 ${borderColor}
-                hover:shadow-2xl hover:shadow-primary/5
-            `}
-        >
-            {/* Background Gradient */}
-            <div className={`absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity duration-500 ${isBullish ? 'from-green-500 to-transparent' : 'from-red-500 to-transparent'}`} />
-
-
-
+    // Abstracted content to reuse in both Mobile (No Tilt) and Desktop (Tilt) views
+    const CardContent = ({ pred, isStock, trendColor, statusColor, isBullish, currency }: { pred: Prediction, isStock: boolean, trendColor: string, statusColor: string, isBullish: boolean, currency: string }) => (
+        <>
             {/* Header */}
             <div className="flex justify-between items-start mb-6 z-10 gap-2">
                 <div className="space-y-1 min-w-0 flex-1">
                     <div className="flex items-center gap-3">
                         <h3 className="font-black text-2xl md:text-3xl text-foreground tracking-tight truncate">
-                            {cleanSymbol(pred.stock_name || pred.stockname || pred.coin || pred.coin_name)}
+                            {cleanSymbol(pred.stock_name || pred.coin || pred.name)}
                         </h3>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 bg-muted/50 border border-border/50 shrink-0 ${trendColor}`}>
                             {isBullish ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
@@ -99,7 +87,6 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                    {/* Small Glowing Brain Icon */}
                     <div className={`relative flex items-center justify-center p-1.5 rounded-xl border bg-background/50 backdrop-blur-md shadow-[0_0_15px_-3px] transition-all duration-300 ${isBullish ? 'border-green-500/30 shadow-green-500/30' : 'border-red-500/30 shadow-red-500/30'}`}>
                         <BrainCircuit className={`w-4 h-4 md:w-5 md:h-5 ${isBullish ? 'text-green-500' : 'text-red-500'}`} />
                         <div className={`absolute inset-0 rounded-xl opacity-20 blur-[8px] ${isBullish ? 'bg-green-500' : 'bg-red-500'}`} />
@@ -131,10 +118,60 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
                 <div className="flex justify-between items-center px-2">
                     <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">Target Date</div>
                     <div className="text-xs font-mono text-muted-foreground">
-                        {safeFormatDate(pred.predicted_time_ist || pred.prediction_time_ist || pred.predicted_time || pred.prediction_valid_till_ist)}
+                        {safeFormatDate(pred.predicted_time || pred.prediction_valid_till_ist)}
                     </div>
                 </div>
             </div>
-        </motion.div>
+        </>
+    );
+
+    const { isMobile } = usePerformanceTier();
+
+    if (isMobile) {
+        return (
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`
+                    group relative flex flex-col p-6 rounded-3xl overflow-hidden h-full
+                    bg-card/40 backdrop-blur-xl
+                    border border-border/50
+                    transition-all duration-300 ${borderColor}
+                `}
+            >
+                {/* Background Gradient - Simplified for Mobile */}
+                <div className={`absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity duration-500 ${isBullish ? 'from-green-500 to-transparent' : 'from-red-500 to-transparent'}`} />
+
+                {/* Content - Same as below but without Tilt wrapper overhead */}
+                <CardContent pred={pred} isStock={isStock} trendColor={trendColor} statusColor={statusColor} isBullish={isBullish} currency={currency} />
+            </motion.div>
+        );
+    }
+
+    return (
+        <Tilt
+            tiltMaxAngleX={3}
+            tiltMaxAngleY={3}
+            scale={1.02}
+            transitionSpeed={450}
+            className="h-full"
+        >
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`
+                    group relative flex flex-col p-6 rounded-3xl overflow-hidden h-full
+                    bg-card/40 backdrop-blur-xl
+                    border border-border/50
+                    transition-all duration-300 ${borderColor}
+                    hover:shadow-2xl hover:shadow-primary/5
+                `}
+            >
+                {/* Background Gradient */}
+                <div className={`absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-10 transition-opacity duration-500 ${isBullish ? 'from-green-500 to-transparent' : 'from-red-500 to-transparent'}`} />
+
+                <CardContent pred={pred} isStock={isStock} trendColor={trendColor} statusColor={statusColor} isBullish={isBullish} currency={currency} />
+            </motion.div>
+        </Tilt>
     );
 }

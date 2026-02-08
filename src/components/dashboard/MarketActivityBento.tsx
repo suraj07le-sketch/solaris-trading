@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchNSEMostActive, fetch52WeekHighLow, StockInsight } from "@/lib/marketInsights";
 import { motion } from "framer-motion";
 import { Activity, ArrowUpRight, ArrowDownRight, Zap } from "lucide-react";
 
 export function MarketActivityBento() {
-    const [activeNSE, setActiveNSE] = useState<StockInsight[]>([]);
-    const [breakouts, setBreakouts] = useState<{ high: any[], low: any[] }>({ high: [], low: [] });
-    const [loading, setLoading] = useState(true);
+    const { data, isLoading } = useQuery({
+        queryKey: ['market-activity'],
+        queryFn: async () => {
+            const [nse, highlow] = await Promise.all([fetchNSEMostActive(), fetch52WeekHighLow()]);
+            return {
+                activeNSE: nse.slice(0, 10),
+                breakouts: highlow
+            };
+        },
+        staleTime: 15 * 60 * 1000, // 15 minutes cache
+        retry: 1, // Don't hammer the API if it fails
+        refetchOnWindowFocus: false, // Prevent 429s on tab switch
+    });
 
-    useEffect(() => {
-        Promise.all([fetchNSEMostActive(), fetch52WeekHighLow()]).then(([nse, highlow]) => {
-            setActiveNSE(nse.slice(0, 10));
-            setBreakouts(highlow);
-            setLoading(false);
-        });
-    }, []);
+    const activeNSE = data?.activeNSE || [];
+    const breakouts = data?.breakouts || { high: [], low: [] };
+    const loading = isLoading;
 
     // Fallback UI to check Bento layout
     const demoActive = [
@@ -38,7 +44,7 @@ export function MarketActivityBento() {
                 </div>
 
                 <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                    {(activeNSE.length > 0 ? activeNSE : demoActive).filter(stock => stock?.symbol).map((stock, i) => (
+                    {(activeNSE.length > 0 ? activeNSE : demoActive).filter((stock: any) => stock?.symbol).map((stock: any, i: number) => (
                         <div key={i} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all">
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center font-black text-primary text-xs">

@@ -169,47 +169,46 @@ async function fetchStocks() {
     const INDIAN_API_KEY = process.env.INDIAN_API_KEY;
 
     if (!INDIAN_API_KEY) {
-        console.warn("[Sync] INDIAN_API_KEY is missing. Skipping Indian stocks fetch.");
-        return [];
-    }
-
-    try {
-        console.log("[Sync] Pulling data from Indian Stock API...");
-        // Use individual metadata fetches for deep data quality
-        const results = await Promise.all(STOCK_SYMBOLS.map(async (fullSymbol) => {
-            const sym = fullSymbol.split('.')[0];
-            try {
-                const res = await fetch(`https://stock.indianapi.in/stock?name=${sym}`, {
-                    headers: { "X-Api-Key": INDIAN_API_KEY },
-                    next: { revalidate: 300 }
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    return {
-                        symbol: sym,
-                        name: data.companyName || sym,
-                        current_price: data.currentPrice?.NSE || data.currentPrice?.BSE || 0,
-                        price_change_percentage_24h: data.changePercentage || 0,
-                        market_cap: data.marketCap || 0,
-                        high_24h: data.high52Week || 0,
-                        low_24h: data.low52Week || 0,
-                        volume: data.volume || 0,
-                        image: `https://logo.clearbit.com/${sym.toLowerCase()}.com`
-                    };
+        console.warn("[Sync] INDIAN_API_KEY is missing. Falling back to Yahoo Finance.");
+    } else {
+        try {
+            console.log("[Sync] Pulling data from Indian Stock API...");
+            // Use individual metadata fetches for deep data quality
+            const results = await Promise.all(STOCK_SYMBOLS.map(async (fullSymbol) => {
+                const sym = fullSymbol.split('.')[0];
+                try {
+                    const res = await fetch(`https://stock.indianapi.in/stock?name=${sym}`, {
+                        headers: { "X-Api-Key": INDIAN_API_KEY },
+                        next: { revalidate: 300 }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        return {
+                            symbol: sym,
+                            name: data.companyName || sym,
+                            current_price: data.currentPrice?.NSE || data.currentPrice?.BSE || 0,
+                            price_change_percentage_24h: data.changePercentage || 0,
+                            market_cap: data.marketCap || 0,
+                            high_24h: data.high52Week || 0,
+                            low_24h: data.low52Week || 0,
+                            volume: data.volume || 0,
+                            image: `https://logo.clearbit.com/${sym.toLowerCase()}.com`
+                        };
+                    }
+                } catch (e) {
+                    console.warn(`[Sync] Failed fetch for ${sym}:`, e);
                 }
-            } catch (e) {
-                console.warn(`[Sync] Failed fetch for ${sym}:`, e);
-            }
-            return null;
-        }));
+                return null;
+            }));
 
-        const valid = results.filter(s => s !== null);
-        if (valid.length >= 5) {
-            console.log(`[Sync] Successfully synced ${valid.length} stocks from Indian API`);
-            return valid;
+            const valid = results.filter(s => s !== null);
+            if (valid.length >= 5) {
+                console.log(`[Sync] Successfully synced ${valid.length} stocks from Indian API`);
+                return valid;
+            }
+        } catch (e) {
+            console.error("[Sync] Indian API critical failure:", e);
         }
-    } catch (e) {
-        console.error("[Sync] Indian API critical failure:", e);
     }
 
     // Fallback to Yahoo Finance (Bulk fetch)

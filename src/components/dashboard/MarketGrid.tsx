@@ -47,53 +47,16 @@ function MarketGridComponent({
 
     const [generatingPrediction, setGeneratingPrediction] = useState<string | null>(null);
 
-    // Generate prediction using local API
-    const handlePrediction = useCallback(async (coin: Coin) => {
+    // Generate prediction by navigating to the predictions page
+    const handlePrediction = useCallback((coin: Coin) => {
         if (!user) {
             toast.error("Please login to use AI features.");
             return;
         }
 
-        if (generatingPrediction) {
-            toast.error("Please wait for the current prediction to complete.");
-            return;
-        }
-
-        setGeneratingPrediction(coin.id);
-        toast.loading(`Generating prediction for ${coin.name}...`, { id: `predict-${coin.id}` });
-
-        try {
-            const response = await fetch('/api/predict', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    coinId: coin.id,
-                    coinName: coin.name,
-                    symbol: coin.symbol,
-                    timeframe: '4h',
-                    type: assetType,
-                    currentPrice: coin.current_price
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                toast.success(`Prediction generated for ${coin.name}!`, { id: `predict-${coin.id}` });
-                // Navigate to predictions page with source parameter
-                setTimeout(() => {
-                    router.push(`/predictions?poll=true&type=${assetType}&source=${source}`);
-                }, 500);
-            } else {
-                toast.error(data.error || 'Failed to generate prediction', { id: `predict-${coin.id}` });
-            }
-        } catch (err) {
-            console.error("Prediction API Error:", err);
-            toast.error("Failed to generate prediction. Please try again.", { id: `predict-${coin.id}` });
-        } finally {
-            setGeneratingPrediction(null);
-        }
-    }, [user, assetType, router, generatingPrediction]);
+        // Navigate immediately to the predictions page with the necessary parameters
+        router.push(`/predictions?predict=${coin.symbol.toUpperCase()}&type=${assetType}&timeframe=4h&source=${source}`);
+    }, [user, assetType, router, source]);
 
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">

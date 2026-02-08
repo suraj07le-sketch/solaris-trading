@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Coin } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 import { useDashboard } from "@/context/DashboardContext";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform, Variants } from "framer-motion";
 import { TrendingUp, TrendingDown, Layers, Activity, ArrowRight, BrainCircuit, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -13,43 +13,8 @@ import { useTranslations } from "next-intl";
 import { MarketIndices } from "./MarketIndices";
 import { MarketActivityBento } from "./MarketActivityBento";
 import { HighConvictionPanel } from "./HighConvictionPanel";
-
-// --- 3D Tilt Card Component ---
 import AssetIcon from "./AssetIcon";
 
-function TiltCard({ children, className }: { children: React.ReactNode; className?: string }) {
-    const x = useMotionValue(0);
-    const y = useMotionValue(0);
-
-    const mouseX = useSpring(x, { stiffness: 500, damping: 100 });
-    const mouseY = useSpring(y, { stiffness: 500, damping: 100 });
-
-    function onMouseMove({ currentTarget, clientX, clientY }: React.MouseEvent) {
-        const { left, top, width, height } = currentTarget.getBoundingClientRect();
-        x.set(clientX - left - width / 2);
-        y.set(clientY - top - height / 2);
-    }
-
-    function onMouseLeave() {
-        x.set(0);
-        y.set(0);
-    }
-
-    const rotateX = useTransform(mouseY, [-300, 300], [15, -15]); // Inverted for natural feel
-    const rotateY = useTransform(mouseX, [-300, 300], [-15, 15]);
-
-    return (
-        <motion.div
-            style={{ perspective: 1000, rotateX, rotateY }}
-            onMouseMove={onMouseMove}
-            onMouseLeave={onMouseLeave}
-            className={`relative group transform-gpu transition-all duration-200 ease-out ${className}`}
-        >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-3xl pointer-events-none mix-blend-overlay z-10" />
-            {children}
-        </motion.div>
-    );
-}
 
 
 
@@ -113,32 +78,13 @@ export default function ClientDashboard({ initialData }: { initialData: Coin[] }
     const { data, isLoading, isInitialized, fetchDashboard } = useDashboard();
     const t = useTranslations('Dashboard');
 
-    // Fetch on mount and when user changes
-    useEffect(() => {
-        if (!authLoading && user) {
-            fetchDashboard();
-        }
-    }, [user, authLoading, fetchDashboard]);
-
-    // Refetch on window focus (background refresh)
-    useEffect(() => {
-        const handleFocus = () => {
-            if (document.visibilityState === 'visible' && user) {
-                fetchDashboard();
-            }
-        };
-        window.addEventListener('focus', handleFocus);
-        document.addEventListener('visibilitychange', handleFocus);
-        return () => {
-            window.removeEventListener('focus', handleFocus);
-            document.removeEventListener('visibilitychange', handleFocus);
-        };
-    }, [user, fetchDashboard]);
+    // React Query handles fetching, staleness, and focus revalidation automatically
+    // we just read the data from the context (which uses React Query)
 
     // Only show skeleton on first load, not subsequent navigations
     if (!isInitialized && isLoading) return <DashboardSkeleton />;
 
-    const { stats, todaysPredictions, topWatchlist } = data;
+    const { stats, recentPredictions, topWatchlist } = data;
 
     // Helper to find market data for a watchlist item
     const getPriceData = (coinId: string, symbol: string) => {
@@ -146,19 +92,19 @@ export default function ClientDashboard({ initialData }: { initialData: Coin[] }
         return found || null;
     };
 
-    const containerVariants = {
+    const containerVariants: Variants = {
         hidden: { opacity: 0 },
         show: {
             opacity: 1,
             transition: {
-                staggerChildren: 0.03 // Faster stagger for snappier feel
+                staggerChildren: 0.1 // Cinematic stagger
             }
         }
     };
 
-    const itemVariants = {
-        hidden: { opacity: 0, y: 10 },
-        show: { opacity: 1, y: 0, transition: { type: "tween" as const, duration: 0.2 } }
+    const itemVariants: Variants = {
+        hidden: { opacity: 0, y: 20 },
+        show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 50, damping: 20 } }
     };
 
     return (
@@ -192,100 +138,99 @@ export default function ClientDashboard({ initialData }: { initialData: Coin[] }
             </motion.div>
 
             {/* 1. Portfolio Stats Cards - Solaris Style */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {/* 1. Crypto All */}
                 <motion.div variants={itemVariants}>
-                    <div className="solaris-card h-full p-4 flex flex-col justify-between group relative overflow-hidden hover:border-orange-500/50">
+                    <div className="solaris-card h-full p-3 md:p-4 flex flex-col justify-between group relative overflow-hidden hover:border-orange-500/50">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/10 rounded-full blur-[50px] group-hover:bg-orange-500/20 transition-all" />
                         <div className="relative z-10">
-                            <div className="flex justify-between items-center mb-0">
-                                <div className="p-2 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
-                                    <Activity className="w-5 h-5" />
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="p-1.5 md:p-2 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                    <Activity className="w-4 h-4 md:w-5 md:h-5" />
                                 </div>
-                                <div className="text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest">{t('allCrypto').toUpperCase()}</div>
+                                <div className="text-[9px] md:text-[10px] font-black text-orange-600 dark:text-orange-400 uppercase tracking-widest text-right leading-tight max-w-[60px] md:max-w-none">{t('allCrypto').toUpperCase()}</div>
                             </div>
                         </div>
-                        <div className="relative z-10 flex-1 flex flex-col justify-center">
-                            <div className="text-3xl font-mono font-bold tracking-tighter text-foreground">
+                        <div className="relative z-10 flex-1 flex flex-col justify-center min-h-[60px]">
+                            <div className="text-2xl md:text-3xl font-mono font-bold tracking-tighter text-foreground truncate">
                                 {stats.totalCrypto.toLocaleString()}
                             </div>
-                            <div className="text-[10px] font-medium text-muted-foreground">{t('availableAssets')}</div>
+                            <div className="text-[9px] md:text-[10px] font-medium text-muted-foreground truncate">{t('availableAssets')}</div>
                         </div>
-                        <Link href="/crypto" className="mt-4 flex items-center gap-2 text-xs font-bold text-orange-500 hover:text-foreground transition-colors">
-                            {t('viewMarket')} <ArrowRight className="w-3 h-3" />
+                        <Link href="/crypto" className="mt-2 md:mt-4 flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-orange-500 hover:text-foreground transition-colors">
+                            {t('viewMarket')} <ArrowRight className="w-2.5 h-2.5 md:w-3 md:h-3" />
                         </Link>
                     </div>
                 </motion.div>
 
                 {/* 2. Crypto Watchlist */}
                 <motion.div variants={itemVariants}>
-                    <div className="solaris-card h-full p-4 flex flex-col justify-between group relative overflow-hidden hover:border-orange-500/50">
-                        {/* Different accent or style */}
+                    <div className="solaris-card h-full p-3 md:p-4 flex flex-col justify-between group relative overflow-hidden hover:border-pink-500/50">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-pink-500/10 rounded-full blur-[50px] group-hover:bg-pink-500/20 transition-all" />
                         <div className="relative z-10">
-                            <div className="flex justify-between items-center mb-0">
-                                <div className="p-2 rounded-xl bg-pink-500/10 text-pink-500 border border-pink-500/20">
-                                    <Sparkles className="w-5 h-5" />
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="p-1.5 md:p-2 rounded-xl bg-pink-500/10 text-pink-500 border border-pink-500/20">
+                                    <Sparkles className="w-4 h-4 md:w-5 md:h-5" />
                                 </div>
-                                <div className="text-[10px] font-black text-pink-600 dark:text-pink-400 uppercase tracking-widest">{t('myCrypto').toUpperCase()}</div>
+                                <div className="text-[9px] md:text-[10px] font-black text-pink-600 dark:text-pink-400 uppercase tracking-widest text-right leading-tight max-w-[60px] md:max-w-none">{t('myCrypto').toUpperCase()}</div>
                             </div>
                         </div>
-                        <div className="relative z-10 flex-1 flex flex-col justify-center">
-                            <div className="text-3xl font-mono font-bold tracking-tighter text-foreground">
+                        <div className="relative z-10 flex-1 flex flex-col justify-center min-h-[60px]">
+                            <div className="text-2xl md:text-3xl font-mono font-bold tracking-tighter text-foreground truncate">
                                 {stats.cryptoCount}
                             </div>
-                            <div className="text-[10px] font-medium text-muted-foreground">{t('inWatchlist')}</div>
+                            <div className="text-[9px] md:text-[10px] font-medium text-muted-foreground truncate">{t('inWatchlist')}</div>
                         </div>
-                        <Link href="/watchlist" className="mt-4 flex items-center gap-2 text-xs font-bold text-pink-500 hover:text-foreground transition-colors">
-                            {t('viewWatchlist')} <ArrowRight className="w-3 h-3" />
+                        <Link href="/watchlist" className="mt-2 md:mt-4 flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-pink-500 hover:text-foreground transition-colors">
+                            {t('viewWatchlist')} <ArrowRight className="w-2.5 h-2.5 md:w-3 md:h-3" />
                         </Link>
                     </div>
                 </motion.div>
 
                 {/* 3. Stock All */}
                 <motion.div variants={itemVariants}>
-                    <div className="solaris-card h-full p-4 flex flex-col justify-between group hover:border-amber-500/50 relative overflow-hidden">
+                    <div className="solaris-card h-full p-3 md:p-4 flex flex-col justify-between group hover:border-amber-500/50 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-[50px] group-hover:bg-amber-500/20 transition-all" />
                         <div className="relative z-10">
-                            <div className="flex justify-between items-center mb-0">
-                                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                                    <Layers className="w-5 h-5" />
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="p-1.5 md:p-2 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                    <Layers className="w-4 h-4 md:w-5 md:h-5" />
                                 </div>
-                                <div className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{t('allStocks').toUpperCase()}</div>
+                                <div className="text-[9px] md:text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest text-right leading-tight max-w-[60px] md:max-w-none">{t('allStocks').toUpperCase()}</div>
                             </div>
                         </div>
-                        <div className="relative z-10 flex-1 flex flex-col justify-center">
-                            <div className="text-3xl font-mono font-bold tracking-tighter text-foreground">
+                        <div className="relative z-10 flex-1 flex flex-col justify-center min-h-[60px]">
+                            <div className="text-2xl md:text-3xl font-mono font-bold tracking-tighter text-foreground truncate">
                                 {stats.totalStocks.toLocaleString()}
                             </div>
-                            <div className="text-[10px] font-medium text-muted-foreground">{t('availableAssets')}</div>
+                            <div className="text-[9px] md:text-[10px] font-medium text-muted-foreground truncate">{t('availableAssets')}</div>
                         </div>
-                        <Link href="/stocks" className="mt-4 flex items-center gap-2 text-xs font-bold text-amber-500 hover:text-foreground transition-colors">
-                            {t('viewMarket')} <ArrowRight className="w-3 h-3" />
+                        <Link href="/stocks" className="mt-2 md:mt-4 flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-amber-500 hover:text-foreground transition-colors">
+                            {t('viewMarket')} <ArrowRight className="w-2.5 h-2.5 md:w-3 md:h-3" />
                         </Link>
                     </div>
                 </motion.div>
 
                 {/* 4. Stock Watchlist */}
                 <motion.div variants={itemVariants}>
-                    <div className="solaris-card h-full p-4 flex flex-col justify-between group hover:border-yellow-500/50 relative overflow-hidden">
+                    <div className="solaris-card h-full p-3 md:p-4 flex flex-col justify-between group hover:border-yellow-500/50 relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full blur-[50px] group-hover:bg-yellow-500/20 transition-all" />
                         <div className="relative z-10">
-                            <div className="flex justify-between items-center mb-0">
-                                <div className="p-2 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
-                                    <BrainCircuit className="w-5 h-5" />
+                            <div className="flex justify-between items-start mb-2">
+                                <div className="p-1.5 md:p-2 rounded-xl bg-yellow-500/10 text-yellow-500 border border-yellow-500/20">
+                                    <BrainCircuit className="w-4 h-4 md:w-5 md:h-5" />
                                 </div>
-                                <div className="text-[10px] font-black text-yellow-600 dark:text-yellow-400 uppercase tracking-widest">{t('myStocks').toUpperCase()}</div>
+                                <div className="text-[9px] md:text-[10px] font-black text-yellow-600 dark:text-yellow-400 uppercase tracking-widest text-right leading-tight max-w-[60px] md:max-w-none">{t('myStocks').toUpperCase()}</div>
                             </div>
                         </div>
-                        <div className="relative z-10 flex-1 flex flex-col justify-center">
-                            <div className="text-3xl font-mono font-bold tracking-tighter text-foreground">
+                        <div className="relative z-10 flex-1 flex flex-col justify-center min-h-[60px]">
+                            <div className="text-2xl md:text-3xl font-mono font-bold tracking-tighter text-foreground truncate">
                                 {stats.stockCount}
                             </div>
-                            <div className="text-[10px] font-medium text-muted-foreground">{t('inWatchlist')}</div>
+                            <div className="text-[9px] md:text-[10px] font-medium text-muted-foreground truncate">{t('inWatchlist')}</div>
                         </div>
-                        <Link href="/watchlist" className="mt-4 flex items-center gap-2 text-xs font-bold text-yellow-500 hover:text-foreground transition-colors">
-                            {t('viewWatchlist')} <ArrowRight className="w-3 h-3" />
+                        <Link href="/watchlist" className="mt-2 md:mt-4 flex items-center gap-1.5 text-[10px] md:text-xs font-bold text-yellow-500 hover:text-foreground transition-colors">
+                            {t('viewWatchlist')} <ArrowRight className="w-2.5 h-2.5 md:w-3 md:h-3" />
                         </Link>
                     </div>
                 </motion.div>
@@ -317,9 +262,10 @@ export default function ClientDashboard({ initialData }: { initialData: Coin[] }
                     <div className="space-y-3">
                         {isLoading ? (
                             [1, 2, 3].map(i => <div key={i} className="h-24 solaris-skeleton" />)
-                        ) : todaysPredictions.length > 0 ? (
-                            todaysPredictions.map((pred, i) => {
-                                const isBullish = pred.trend?.toUpperCase() === 'UP';
+                        ) : recentPredictions.length > 0 ? (
+                            recentPredictions.slice(0, 10).map((pred, i) => {
+                                const prediction = pred.signal || pred.trend || 'HOLD';
+                                const isBullish = prediction === 'UP' || prediction === 'BUY' || prediction === 'BULLISH';
                                 return (
                                     <motion.div
                                         key={i}

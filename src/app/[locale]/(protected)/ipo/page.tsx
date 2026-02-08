@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import useSWR from "swr";
-import { swrFetcher } from "@/lib/swr-fetcher";
+import { useIPOData } from "@/hooks/useQueries";
 import { IPOList } from "@/components/ipo/IPOList";
 import { motion } from "framer-motion";
 import { Rocket, ShieldCheck, Zap } from "lucide-react";
@@ -10,14 +9,7 @@ import { Rocket, ShieldCheck, Zap } from "lucide-react";
 export default function IPOPage() {
     const [category, setCategory] = useState<"all" | "mainboard" | "sme">("all");
 
-    const { data: rawData, error } = useSWR(
-        'https://stock.indianapi.in/ipo',
-        swrFetcher,
-        {
-            revalidateOnFocus: true,
-            dedupingInterval: 30000,
-        }
-    );
+    const { data: rawData, error } = useIPOData();
 
     const fullIpoData = useMemo(() => {
         if (!rawData) return [];

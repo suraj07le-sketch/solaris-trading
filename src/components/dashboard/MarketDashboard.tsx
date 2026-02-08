@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import useSWR from "swr";
+import { useMarketData } from "@/hooks/useQueries";
 import { Coin, WatchlistItem } from "@/types";
 import TradingViewWidget from "@/components/dashboard/TradingViewWidget";
 import MarketTable from "@/components/dashboard/MarketTable";
@@ -18,20 +18,9 @@ export default function MarketDashboard({ coins, assetType = 'stock' }: MarketDa
     const [selectedSymbol, setSelectedSymbol] = useState(assetType === 'stock' ? "BSE:RELIANCE" : "BINANCE:BTCUSDT");
     const topRef = useRef<HTMLDivElement>(null);
     const router = useRouter();
-    const { data: liveCoins } = useSWR(`market-db-${assetType}`, async () => {
-        // Use the new fast DB endpoint
-        const res = await fetch(`/api/market?type=${assetType}`);
-        const json = await res.json();
-        if (json.success) {
-            return json.data;
-        }
-        return coins;
-    }, {
-        fallbackData: coins,
-        refreshInterval: 0, // Disable auto-refresh to prevent flickering, rely on user action or page navigation
-        revalidateOnFocus: false,
-        dedupingInterval: 5000
-    });
+
+    // React Query version of market data
+    const { data: liveCoins } = useMarketData(assetType, coins);
 
     const displayCoins = liveCoins || coins;
 

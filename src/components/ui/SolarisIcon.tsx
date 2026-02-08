@@ -33,12 +33,10 @@ export const SolarisIcon = ({ className = "w-6 h-6", color = "currentColor" }: {
             <div className="absolute inset-[1px] bg-background rounded-full z-10" />
 
             <div className="relative z-20 w-full h-full rounded-full overflow-hidden">
-                <Image
-                    src="/solaris-logo.png"
+                <img
+                    src="/favicon.ico"
                     alt="ShursunT Logo"
-                    fill
-                    className="object-contain p-[2px]"
-                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    className="w-full h-full object-contain p-[2px]"
                 />
             </div>
         </div>

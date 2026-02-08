@@ -36,7 +36,7 @@ export async function GET(req: Request) {
                 "X-Api-Key": API_KEY,
                 "Content-Type": "application/json"
             },
-            next: { revalidate: 60 } // Cache for 1 minute
+            next: { revalidate: 300 } // Cache for 5 minutes (300s) to avoid 429 Rate Limits
         });
 
         if (!res.ok) {

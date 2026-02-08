@@ -1,12 +1,14 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, useRef, useMemo } from 'react';
-import { supabase } from '@/lib/supabase';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { useWatchlist, usePredictions, useDashboardStats } from '@/hooks/useQueries';
+import { Prediction } from '@/types/prediction';
 
 interface DashboardData {
     stats: { stockCount: number; cryptoCount: number; totalStocks: number; totalCrypto: number };
-    todaysPredictions: any[];
+    recentPredictions: any[];
     topWatchlist: any[];
     watchlist?: any[];
     lastFetched: number | null;
@@ -22,7 +24,7 @@ interface DashboardContextType {
 
 const defaultData: DashboardData = {
     stats: { stockCount: 0, cryptoCount: 0, totalStocks: 0, totalCrypto: 0 },
-    todaysPredictions: [],
+    recentPredictions: [],
     topWatchlist: [],
     watchlist: [],
     lastFetched: null,
@@ -30,138 +32,58 @@ const defaultData: DashboardData = {
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
 
-const CACHE_DURATION = 60 * 1000; // 1 minute cache
-
-import useSWR from 'swr';
-
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
+    const queryClient = useQueryClient();
 
-    // Demo user ID for sample predictions
-    const DEMO_USER_ID = '00000000-0000-0000-0000-000000000000';
+    // 1. Get Watchlist
+    const { data: watchlist, isLoading: wlLoading } = useWatchlist();
 
-    // 1. Static Counts (Infrequent refresh)
-    const { data: counts } = useSWR(
-        user ? `dashboard-counts` : null,
-        async () => {
-            const [totalStocksRes, totalCryptoRes] = await Promise.all([
-                supabase.from("indian_stocks").select("*", { count: 'exact', head: true }),
-                supabase.from("crypto_coins").select("*", { count: 'exact', head: true })
-            ]);
-            return {
-                totalStocks: totalStocksRes.count || 0,
-                totalCrypto: totalCryptoRes.count || 0
-            };
-        },
-        {
-            refreshInterval: 600000, // 10 minutes
-            revalidateOnFocus: false,
-        }
-    );
+    // 2. Get Stats
+    const { data: statsData, isLoading: statsLoading } = useDashboardStats();
 
-    // 2. Dynamic Dashboard Data
-    const { data: rawDashboard, error, mutate } = useSWR(
-        user ? `dashboard-data-${user.id}` : null,
-        async () => {
-            // Get today's date in IST
-            const today = new Date();
-            const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-
-            const startDate = startOfDay.toISOString();
-            const endDate = endOfDay.toISOString();
-
-            // Fetch user's watchlist
-            const watchlistRes = await supabase
-                .from("watchlist")
-                .select("*")
-                .eq("user_id", user!.id);
-
-            // Fetch predictions (user's own + demo predictions)
-            const userId = user!.id;
-
-            const [stockPredsRes, cryptoPredsRes] = await Promise.all([
-                supabase
-                    .from("stock_predictions")
-                    .select("*")
-                    .or(`user_id.eq.${userId},user_id.eq.${DEMO_USER_ID}`)
-                    .gte("created_at", startDate)
-                    .order("created_at", { ascending: false })
-                    .limit(10),
-                supabase
-                    .from("crypto_predictions")
-                    .select("*")
-                    .or(`user_id.eq.${userId},user_id.eq.${DEMO_USER_ID}`)
-                    .gte("created_at", startDate)
-                    .order("created_at", { ascending: false })
-                    .limit(10)
-            ]);
-
-            const list = watchlistRes.data || [];
-
-            // Combine predictions from both tables
-            const combined = [
-                ...(stockPredsRes.data || []).map((p: any) => ({
-                    ...p,
-                    type: 'stock',
-                    name: p.stock_name,
-                    confidence: p.confidence || p.accuracy_percent || 0
-                })),
-                ...(cryptoPredsRes.data || []).map((p: any) => ({
-                    ...p,
-                    type: 'crypto',
-                    name: p.coin || p.coin_name,
-                    confidence: p.confidence || 0
-                }))
-            ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-            // Trigger background sync to ensure data is fresh for next time
-            // We don't await this so it doesn't block the initial dashboard load
-            // OPTIMIZATION: Removed auto-sync on load to speed up dashboard. 
-            // Sync should be handled by a dedicated background worker or manual trigger.
-            // fetch('/api/sync').catch(e => console.error("Background sync failed:", e));
-
-            return {
-                watchlist: list,
-                todaysPredictions: combined.slice(0, 10),
-                topWatchlist: list.slice(0, 5),
-                lastFetched: Date.now()
-            };
-        },
-        {
-            revalidateOnFocus: true,
-            revalidateOnMount: true,
-            refreshInterval: 60000, // Reduced frequency to prevent API hammering
-            dedupingInterval: 10000,
-        }
-    );
+    // 3. Get Recent Predictions (Both Stocks and Crypto for Dashboard)
+    const { data: stockPreds, isLoading: spLoading } = usePredictions('stock');
+    const { data: cryptoPreds, isLoading: cpLoading } = usePredictions('crypto');
 
     const data = useMemo(() => {
-        const d = rawDashboard || defaultData;
-        const c = counts || { totalStocks: 0, totalCrypto: 0 };
-        const list = d.watchlist || [];
+        const list = watchlist || [];
+        const combined: Prediction[] = [
+            ...(stockPreds || []).map(p => ({ ...p, type: 'stock' as const })),
+            ...(cryptoPreds || []).map(p => ({ ...p, type: 'crypto' as const }))
+        ].sort((a, b) => {
+            const dateA = new Date(a.created_at || 0).getTime();
+            const dateB = new Date(b.created_at || 0).getTime();
+            return dateB - dateA;
+        });
 
         return {
-            ...d,
+            watchlist: list,
+            recentPredictions: combined.slice(0, 50),
+            topWatchlist: list.slice(0, 5),
+            lastFetched: Date.now(),
             stats: {
-                stockCount: list.filter((i: any) => i.asset_type === 'stock').length,
-                cryptoCount: list.filter((i: any) => i.asset_type === 'crypto' || !i.asset_type).length,
-                totalStocks: c.totalStocks,
-                totalCrypto: c.totalCrypto
+                stockCount: statsData?.watchlistStocks || 0,
+                cryptoCount: statsData?.watchlistCrypto || 0,
+                totalStocks: statsData?.totalStocks || 0,
+                totalCrypto: statsData?.totalCrypto || 0
             }
         };
-    }, [rawDashboard, counts]);
+    }, [watchlist, statsData, stockPreds, cryptoPreds]);
 
-    const isLoading = !rawDashboard && !error;
-    const isInitialized = !!rawDashboard;
+    const isLoading = (wlLoading || statsLoading || spLoading || cpLoading) && !watchlist;
+    const isInitialized = !!watchlist && !!statsData;
 
     const fetchDashboard = useCallback(async () => {
-        await mutate();
-    }, [mutate]);
+        await queryClient.invalidateQueries({ queryKey: ['dashboard-data', user?.id] });
+        await queryClient.invalidateQueries({ queryKey: ['watchlist', user?.id] });
+        await queryClient.invalidateQueries({ queryKey: ['predictions', 'stock', undefined, user?.id] });
+        await queryClient.invalidateQueries({ queryKey: ['predictions', 'crypto', undefined, user?.id] });
+    }, [queryClient, user]);
 
     const invalidateCache = useCallback(() => {
-        mutate();
-    }, [mutate]);
+        queryClient.invalidateQueries({ queryKey: ['dashboard-data', user?.id] });
+    }, [queryClient, user]);
 
     return (
         <DashboardContext.Provider value={{ data, isLoading, isInitialized, fetchDashboard, invalidateCache }}>

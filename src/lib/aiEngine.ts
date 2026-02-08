@@ -7,7 +7,7 @@ export interface UnifiedPrediction {
     asset_type: "crypto" | "stock" | "ipo" | "mutual_fund";
     symbol: string;
     name: string;
-    prediction: "UP" | "DOWN" | "SIDEWAYS" | "BULLISH" | "BEARISH" | "NEUTRAL";
+    prediction: "UP" | "DOWN" | "SIDEWAYS" | "BULLISH" | "BEARISH" | "NEUTRAL" | "BUY" | "SELL" | "HOLD";
     probability: number;
     ensemble_consensus: string;
     macro_bias: string;

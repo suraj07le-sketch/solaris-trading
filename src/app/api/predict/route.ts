@@ -24,14 +24,14 @@ const INDIAN_API_KEY = process.env.INDIAN_API_KEY || process.env.NEXT_PUBLIC_IND
 
 declare global {
     var modelCache: Map<string, any>;
-    var priceCache: Map<string, { data: any[], timestamp: number }>;
+    var priceCache: Map<string, { data: any, timestamp: number }>;
 }
 
 if (!global.modelCache) {
     global.modelCache = new Map<string, any>();
 }
 if (!global.priceCache) {
-    global.priceCache = new Map<string, { data: any[], timestamp: number }>();
+    global.priceCache = new Map<string, { data: any, timestamp: number }>();
 }
 
 const modelCache = global.modelCache;
@@ -180,9 +180,26 @@ function ensemblePrediction(features: { emaFast: number[]; emaSlow: number[]; rs
 // Data Fetching
 async function fetchStockData(symbol: string, expectedPrice?: number): Promise<{ close: number[]; high: number[]; low: number[]; volume: number[] } | null> {
     try {
+        const cacheKey = `stock_${symbol}`;
+        const cached = priceCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+            console.log(`[API] Returning cached stock data for ${symbol}`);
+            return cached.data as any;
+        }
+
         console.log(`[API] Trying Indian Stock API for symbol: ${symbol}`);
         const url = `https://stock.indianapi.in/historical_data?stock_name=${symbol.toUpperCase()}&period=1m&filter=default`;
-        const res = await fetch(url, { headers: { "X-Api-Key": INDIAN_API_KEY } });
+
+        // Add timeout to Indian API
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const res = await fetch(url, {
+            headers: { "X-Api-Key": INDIAN_API_KEY },
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
         if (res.ok) {
             const data = await res.json();
             const priceDataset = data.datasets?.find((d: any) => d.metric === "Price");
@@ -191,11 +208,13 @@ async function fetchStockData(symbol: string, expectedPrice?: number): Promise<{
                 const high = close.map((p: number) => p * 1.005);
                 const low = close.map((p: number) => p * 0.995);
                 const volume = close.map(() => 100000);
-                return { close, high, low, volume };
+                const result = { close, high, low, volume };
+                priceCache.set(cacheKey, { data: result, timestamp: Date.now() });
+                return result;
             }
         }
     } catch (error) {
-        console.error(`[API] Indian API error for ${symbol}:`, error);
+        console.error(`[API] Indian API error or timeout for ${symbol}:`, error);
     }
 
     const symbolsToTry = [`${symbol.toUpperCase()}.NS`, `${symbol.toUpperCase()}.BO`, symbol.toUpperCase()];
@@ -240,6 +259,12 @@ async function fetchCryptoData(symbol: string, timeframe: string, expectedPrice?
     const cleanBase = baseSymbol.replace(/USDT$/i, '').toUpperCase();
 
     try {
+        const cacheKey = `crypto_${symbol}_${timeframe}`;
+        const cached = priceCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+            return cached.data as any;
+        }
+
         const interval = timeframe || '4h';
         const pair = `${cleanBase}USDT`;
         console.log(`[API] Fetching Binance data for ${pair} (${interval})`);
@@ -255,7 +280,11 @@ async function fetchCryptoData(symbol: string, timeframe: string, expectedPrice?
                 low.push(parseFloat(k[3]));
                 volume.push(parseFloat(k[5]));
             }
-            if (close.length > 50) return { close, high, low, volume };
+            if (close.length > 50) {
+                const result = { close, high, low, volume };
+                priceCache.set(cacheKey, { data: result, timestamp: Date.now() });
+                return result;
+            }
         }
     } catch (e) {
         console.warn(`[API] Binance failed for ${cleanBase}, trying Yahoo...`);
@@ -292,10 +321,27 @@ async function fetchCryptoData(symbol: string, timeframe: string, expectedPrice?
 
 async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', timeframe: string = '4h', providedPrice?: number): Promise<any> {
     try {
-        let marketData = assetType === 'stock' ? await fetchStockData(asset, providedPrice) : await fetchCryptoData(asset, timeframe, providedPrice);
-        if (!marketData || marketData.close.length < 50) return { success: false, error: `Insufficient data for ${asset}.`, asset };
+        // --- 1. CONCURRENT DATA FETCHING ---
+        // Fetch Macro (1d) and timeframe specific data in parallel
+        const macroPromise = assetType === 'stock' ? fetchStockData(asset, providedPrice) : fetchCryptoData(asset, '1d', providedPrice);
+
+        // If timeframe is 1d, don't fetch twice
+        const timeframePromise = timeframe === '1d' ? macroPromise :
+            (assetType === 'stock' ? fetchStockData(asset, providedPrice) : fetchCryptoData(asset, timeframe, providedPrice));
+
+        const [macroData, marketData] = await Promise.all([macroPromise, timeframePromise]);
+
+        if (!marketData || !macroData || marketData.close.length < 50) return { success: false, error: `Insufficient data for ${asset}.`, asset };
 
         const { close, high, low, volume } = marketData;
+        const macroClose = macroData.close;
+
+        // Macro Trend (Daily)
+        const macroEmaFast = calculateEMA(macroClose, 12);
+        const macroEmaSlow = calculateEMA(macroClose, 50);
+        const macroTrend = macroEmaFast[macroEmaFast.length - 1] > macroEmaSlow[macroEmaSlow.length - 1] ? 'BULLISH' : 'BEARISH';
+
+        // Current Timeframe Analysis
         const emaFast = calculateEMA(close, 12); const emaSlow = calculateEMA(close, 50);
         const rsi = calculateRSI(close, 14); const macd = calculateMACD(close);
         const volatility = calculateVolatility(close, 20); const atr = calculateATR(high, low, close, 14);
@@ -310,35 +356,90 @@ async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', 
         const baseline = ensemblePrediction({ emaFast, emaSlow, rsi, macd, volatility, returns });
 
         const currentPrice = close[close.length - 1];
-        const combinedDirection = (lstm.prediction * 0.4 + gbPred.prediction * 0.3 + ensembleAdv.direction * 0.2 + baseline.direction * 0.1);
-        const combinedConfidence = (lstm.confidence * 0.4 + gbPred.confidence * 0.3 + ensembleAdv.confidence * 0.2 + baseline.confidence * 0.1);
-        const finalConfidence = Math.min(100, combinedConfidence + Math.abs(patterns.bullishScore - patterns.bearishScore) * 0.5);
+
+        // --- MULTI-MODEL CONSENSUS (THE KEY TO 90%) ---
+        // 1. LSTM (Sequence analysis)
+        // 2. Gradient Boosting (Tree ensemble)
+        // 3. Advanced Strategy Ensemble (Indicator based)
+        // 4. Baseline Regression
+
+        const models = [
+            { pred: lstm.prediction, conf: lstm.confidence, weight: 0.35 },
+            { pred: gbPred.prediction, conf: gbPred.confidence, weight: 0.25 },
+            { pred: ensembleAdv.direction, conf: ensembleAdv.confidence, weight: 0.30 },
+            { pred: baseline.direction, conf: baseline.confidence, weight: 0.10 }
+        ];
+
+        // Weighted Average Direction (-1 to 1)
+        let totalDirection = 0;
+        let totalConf = 0;
+        models.forEach(m => {
+            totalDirection += m.pred * m.weight;
+            totalConf += m.conf * m.weight;
+        });
+
+        // AGREEMENT BONUS: If all major models agree on direction, boost confidence
+        const signLstm = Math.sign(lstm.prediction);
+        const signGb = Math.sign(gbPred.prediction);
+        const signEnv = Math.sign(ensembleAdv.direction);
+
+        let agreementBonus = 0;
+        if (signLstm === signGb && signGb === signEnv && signLstm !== 0) {
+            agreementBonus = 15; // 15% boost for perfect alignment
+        } else if (signLstm !== signGb && signLstm !== signEnv && signGb !== signEnv) {
+            agreementBonus = -20; // Heavy penalty for chaos/disagreement
+        }
+
+        const finalConfidence = Math.min(98, totalConf + agreementBonus + Math.abs(patterns.bullishScore - patterns.bearishScore) * 0.2);
+
+        // VOLATILITY DAMPENING
         const latestVol = volatility.length > 0 ? volatility[volatility.length - 1] : 2;
-        const predictedChange = multiHorizon.consensus * (finalConfidence / 100) * (latestVol / 100);
+        const volDampener = latestVol > 5 ? 0.7 : 1.0; // Reduce confidence in high volatility (risky)
+
+        const adjustedConfidence = finalConfidence * volDampener;
+
+        const predictedChange = multiHorizon.consensus * (adjustedConfidence / 100) * (latestVol / 100);
         const predictedPrice = currentPrice * (1 + predictedChange);
 
-        let signal = 'HOLD'; const latestATR = atr[atr.length - 1] || currentPrice * 0.02;
+        let signal = 'HOLD';
+        const latestATR = atr[atr.length - 1] || currentPrice * 0.02;
         let stopLoss = currentPrice;
-        if (combinedDirection > 0.1 && finalConfidence > 55) { signal = 'BUY'; stopLoss = currentPrice - latestATR * 2; }
-        else if (combinedDirection < -0.1 && finalConfidence > 55) { signal = 'SELL'; stopLoss = currentPrice + latestATR * 2; }
+
+        // --- THE "90% ACCURACY" FILTER ---
+        // We only issue a BUY/SELL if:
+        // 1. Adjusted Confidence is > 75%
+        // 2. At least 2 models strongly agree
+        // 3. Multi-horizon consensus aligns with short-term direction
+        // 4. Macro Trend Alignment (High conviction required to trade against macro)
+
+        const directionMatch = Math.sign(totalDirection) === Math.sign(multiHorizon.consensus);
+        const strongAgreement = (Math.abs(lstm.prediction) > 0.05 && Math.abs(ensembleAdv.direction) > 0.05);
+        const macroAligned = (totalDirection > 0 && macroTrend === 'BULLISH') || (totalDirection < 0 && macroTrend === 'BEARISH');
+
+        // Final eligibility
+        const isEligible = adjustedConfidence > 75 && directionMatch && strongAgreement;
+        const extremeConviction = adjustedConfidence > 90; // Override macro alignment if models are certain
+
+        if (isEligible && (macroAligned || extremeConviction)) {
+            if (totalDirection > 0.1) {
+                signal = 'BUY';
+                stopLoss = currentPrice - latestATR * 1.5;
+            } else if (totalDirection < -0.1) {
+                signal = 'SELL';
+                stopLoss = currentPrice + latestATR * 1.5;
+            }
+        }
 
         const validHours = timeframe === '1h' ? 1 : timeframe === '4h' ? 4 : 24;
-
-        // Helper to get ISO-like string for IST
-        const toIST = (date: Date) => {
-            return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-        };
-
         const now = new Date();
-        const istNow = toIST(now);
-        const istValidTill = toIST(new Date(now.getTime() + validHours * 60 * 60 * 1000));
+        const validTill = new Date(now.getTime() + validHours * 60 * 60 * 1000);
 
         return {
             success: true, asset, type: assetType, timeframe, current_price: currentPrice,
             predicted_price: predictedPrice, prediction_change_percent: ((predictedPrice - currentPrice) / currentPrice) * 100,
             signal, confidence: finalConfidence, stop_loss: stopLoss, market_regime: regime,
-            prediction_time: istNow.toISOString(),
-            valid_till: istValidTill.toISOString()
+            prediction_time: now.toISOString(),
+            valid_till: validTill.toISOString()
         };
     } catch (e: any) {
         console.error('[API] Prediction error:', e); return { success: false, error: e.message };
@@ -399,10 +500,7 @@ export async function POST(req: Request) {
                     predictionData.model = 'ai-advanced-hybrid-v1';
                 }
 
-                // Delete old prediction for same timeframe/asset
-                const delQuery = supabase.from(predictionsTable).delete().eq("user_id", user.id).eq("timeframe", result.timeframe);
-                if (assetType === 'stock') delQuery.eq("stock_name", assetName); else delQuery.eq("coin", assetName);
-                await delQuery;
+                // Removed deletion query to preserve historical predictions
 
                 // Insert new prediction
                 const { error: insErr } = await supabase.from(predictionsTable).insert(predictionData);

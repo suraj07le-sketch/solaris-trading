@@ -74,7 +74,7 @@ export default function CoinCard({ coin }: CoinCardProps) {
 
         try {
             // Redirect immediately with query param to trigger prediction on destination
-            router.push(`/predictions?predict=${coin.symbol.toUpperCase()}&type=${coin.asset_type || 'crypto'}`);
+            router.push(`/predictions?predict=${coin.symbol.toUpperCase()}&type=${coin.asset_type || 'crypto'}&timeframe=4h&source=market`);
 
         } catch (err) {
             console.error("Prediction Error:", err);

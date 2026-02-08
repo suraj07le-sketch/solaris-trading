@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import useSWR from "swr";
+import { useMarketData, useSyncMarketData } from "@/hooks/useQueries";
 import { Coin, WatchlistItem } from "@/types";
 import MarketGrid from "./MarketGrid";
 import { Search } from "./Search";
@@ -26,32 +26,10 @@ export default function MarketPlaceView({ initialStocks, initialCrypto }: Market
     const { user } = useAuth();
     const [watchlistIds, setWatchlistIds] = useState<Set<string>>(new Set());
 
-    // Background Refreshing with SWR (Hits live Sync API)
-    const { data: stockData } = useSWR('market-stocks-live', async () => {
-        const res = await fetch('/api/sync');
-        const json = await res.json();
-        return json.success ? json.data.stocks : initialStocks;
-    }, {
-        fallbackData: initialStocks,
-        refreshInterval: 60000,
-        revalidateOnMount: true,
-        revalidateOnFocus: true,
-        keepPreviousData: true,
-        dedupingInterval: 10000
-    });
-
-    const { data: cryptoData } = useSWR('market-crypto-live', async () => {
-        const res = await fetch('/api/sync');
-        const json = await res.json();
-        return json.success ? json.data.cryptos : initialCrypto;
-    }, {
-        fallbackData: initialCrypto,
-        refreshInterval: 60000,
-        revalidateOnMount: true,
-        revalidateOnFocus: true,
-        keepPreviousData: true,
-        dedupingInterval: 10000
-    });
+    // React Query handles global market data and background sync
+    const { data: stockData } = useMarketData('stock', initialStocks);
+    const { data: cryptoData } = useMarketData('crypto', initialCrypto);
+    useSyncMarketData(); // Triggers global background revalidation
 
     const currentData = assetType === 'stock' ? (stockData || initialStocks) : (cryptoData || initialCrypto);
 

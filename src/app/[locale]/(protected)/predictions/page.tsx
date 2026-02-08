@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
-import useSWR from "swr";
+import { usePredictions } from "@/hooks/useQueries";
+import { useQueryClient } from "@tanstack/react-query";
 import { PredictionCard } from "@/components/dashboard/PredictionCard";
 import { GridBackground } from "@/components/ui/GridBackground";
 import { motion } from "framer-motion";
-import { BrainCircuit, RefreshCw, Clock, Sparkles } from "lucide-react";
+import { BrainCircuit, RefreshCw, Clock, Sparkles, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
@@ -50,91 +51,35 @@ function PredictionSkeleton() {
     );
 }
 
-// Robust fetcher function
-const fetcher = async ([userId, date, tab]: [string, string, 'stock' | 'crypto']) => {
-    if (!userId) return [];
-
-    const tableName = tab === 'stock' ? 'stock_predictions' : 'crypto_predictions';
-
-    try {
-        const { data, error } = await supabase
-            .from(tableName as "stock_predictions" | "crypto_predictions")
-            .select("*")
-            .or(`user_id.eq.${userId},user_id.eq.00000000-0000-0000-0000-000000000000`)
-            .order('created_at', { ascending: false })
-            .limit(100);
-
-        if (error) {
-            if (error.message && !error.message.includes('AbortError')) {
-                console.error("[Fetcher] Supabase Error:", error);
-            }
-            return [];
-        }
-
-        // Normalize fields
-        const normalized = (data || []).map((item: any) => ({
-            ...item,
-            coin_name: item.coin_name || item.coin,
-            coin_id: item.coin_id || item.coin,
-            predicted_time: item.predicted_time || item.predicted_time_ist || item.prediction_time || item.prediction_time_ist || item.created_at,
-            created_at: item.created_at
-        }));
-
-        // Filter by date (IST timezone)
-        const filtered = normalized.filter((item: any) => {
-            const targetDateStr = item.predicted_time || item.created_at;
-            if (!targetDateStr) return false;
-            try {
-                // Convert both dates to IST timezone for proper comparison
-                const targetDate = new Date(targetDateStr);
-                const targetIST = new Date(targetDate.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-
-                const filterDate = new Date(date);
-                const filterIST = new Date(filterDate.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-
-                // Compare dates in IST
-                const targetYMD = targetIST.toISOString().split('T')[0];
-                const filterYMD = filterIST.toISOString().split('T')[0];
-
-                return targetYMD === filterYMD;
-            } catch (e) { return false; }
-        });
-
-        // Group by stock/crypto name and keep only the most recent prediction per day
-        const grouped = new Map<string, any>();
-        filtered.forEach((item: any) => {
-            const key = tab === 'stock' ? item.stock_name : (item.coin_name || item.coin);
-            const existing = grouped.get(key);
-
-            if (!existing) {
-                grouped.set(key, item);
-            } else {
-                const existingTime = new Date(existing.created_at).getTime();
-                const currentTime = new Date(item.created_at).getTime();
-                if (currentTime > existingTime) {
-                    grouped.set(key, item);
-                }
-            }
-        });
-
-        return Array.from(grouped.values());
-    } catch (err: any) {
-        if (err.name !== 'AbortError' && err.message !== 'AbortError: signal is aborted without reason') {
-            console.error("[Fetcher] Unexpected error:", err);
-        }
-        return [];
-    }
-};
 
 export default function PredictionsPage() {
     const { user } = useAuth();
     const router = useRouter();
 
     // Always use current date in IST timezone
-    const currentDate = new Date();
-    const istDate = new Date(currentDate.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-    const todayDate = istDate.toISOString().split('T')[0];
-    const [selectedDate] = useState(todayDate);
+    const getISTDate = () => {
+        const now = new Date();
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(now);
+    };
+
+    const todayDate = getISTDate();
+    const [selectedDate, setSelectedDate] = useState(todayDate);
+
+    // Format date for display (ensure it's treated as UTC to avoid timezone shifts)
+    const formatDateDisplay = (dateStr: string) => {
+        const date = new Date(dateStr);
+        return new Intl.DateTimeFormat('en-GB', {
+            weekday: 'short',
+            day: '2-digit',
+            month: 'short',
+            timeZone: 'UTC' // Treat the YYYY-MM-DD as UTC midnight to prevent shifts
+        }).format(date);
+    };
 
     const [activeTab, setActiveTab] = useState<'stock' | 'crypto'>('stock');
     const [isPolling, setIsPolling] = useState(false);
@@ -142,22 +87,9 @@ export default function PredictionsPage() {
     const [lastPredictionTime, setLastPredictionTime] = useState<number>(Date.now());
     const [isGenerating, setIsGenerating] = useState(false);
 
-    // SWR Hook for data fetching with auto-refresh
-    const { data: predictions, isLoading, mutate } = useSWR(
-        user ? [user.id, selectedDate, activeTab] : null,
-        fetcher,
-        {
-            revalidateOnFocus: true,        // Refresh when window gains focus
-            revalidateOnMount: true,        // Refresh on component mount
-            revalidateOnReconnect: true,    // Refresh on network reconnect
-            dedupingInterval: 1000,         // Allow refresh every 1 second (reduced from 0)
-            refreshInterval: isPolling ? 2000 : 0,  // Poll every 2s when generating
-            suspense: false,
-            keepPreviousData: true,         // Show old data while fetching new
-            revalidateIfStale: true,        // Always revalidate stale data
-            focusThrottleInterval: 2000     // Throttle focus revalidation to every 2s
-        }
-    );
+    const queryClient = useQueryClient();
+    const { data: predictions, isLoading: isQueryLoading } = usePredictions(activeTab, selectedDate);
+    const isLoading = isQueryLoading && !predictions;
 
     // Check URL parameters for auto-polling (when redirected from market page)
     useEffect(() => {
@@ -165,12 +97,20 @@ export default function PredictionsPage() {
         const shouldPoll = params.get('poll');
         const assetType = params.get('type');
         const source = params.get('source'); // 'market' or 'watchlist'
+        const predictSymbol = params.get('predict');
+        const timeframe = params.get('timeframe') || '4h';
 
-        if (shouldPoll === 'true' && assetType) {
-            // IMPORTANT: Set active tab FIRST before starting polling/generating
-            // This ensures the correct tab is selected when the page loads
+        if (assetType) {
             setActiveTab(assetType as 'stock' | 'crypto');
+        }
 
+        if (predictSymbol && assetType) {
+            // Instant predict flow
+            setTimeout(() => {
+                generatePrediction(predictSymbol, assetType as 'stock' | 'crypto', timeframe);
+            }, 500);
+        } else if (shouldPoll === 'true' && assetType) {
+            // Legacy/Background poll flow
             // Small delay to ensure tab switch completes before starting loading state
             setTimeout(() => {
                 // For watchlist, use different loading behavior
@@ -182,10 +122,10 @@ export default function PredictionsPage() {
 
                 setLastPredictionTime(Date.now());
             }, 100);
-
-            // Clean up URL
-            window.history.replaceState({}, '', window.location.pathname);
         }
+
+        // Clean up URL
+        window.history.replaceState({}, '', window.location.pathname);
     }, []);
 
     // Auto-stop generating state when new data arrives
@@ -225,7 +165,7 @@ export default function PredictionsPage() {
             return;
         }
 
-        const totalDuration = 60000;
+        const totalDuration = 15000;
         const interval = 100;
         const startTime = Date.now();
 
@@ -286,7 +226,7 @@ export default function PredictionsPage() {
                     created_at: data.prediction.prediction_time
                 };
 
-                mutate((current: any) => {
+                queryClient.setQueryData(['predictions', type, selectedDate, user.id], (current: any) => {
                     if (!current) return [newPred];
                     // Filter out old prediction for same asset to prevent duplicates
                     const filtered = current.filter((p: any) =>
@@ -294,7 +234,7 @@ export default function PredictionsPage() {
                         (type === 'crypto' && p.coin !== symbol)
                     );
                     return [newPred, ...filtered];
-                }, { revalidate: false });
+                });
             } else {
                 toast.error(`Prediction failed: ${data.error || 'Unknown error'}`);
             }
@@ -345,8 +285,52 @@ export default function PredictionsPage() {
                         )}
                     </div>
 
-                    {/* Tab Switcher */}
-                    <div className="flex items-center gap-4">
+                    {/* Tab Switcher & Date Picker */}
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        {/* Custom Date Navigator */}
+                        <div className="flex items-center bg-black/5 dark:bg-black/40 backdrop-blur-md border border-black/5 dark:border-white/5 rounded-full p-1 pl-1 pr-1 relative group">
+                            <button
+                                onClick={() => {
+                                    const date = new Date(selectedDate);
+                                    date.setDate(date.getDate() - 1);
+                                    setSelectedDate(date.toISOString().split('T')[0]);
+                                }}
+                                className="p-2 rounded-full hover:bg-white/10 text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4" />
+                            </button>
+
+                            <div className="flex items-center gap-2 px-2 relative">
+                                <Calendar className="w-4 h-4 text-primary" />
+                                <span className="text-sm font-bold font-mono min-w-[100px] text-center">
+                                    {formatDateDisplay(selectedDate)}
+                                </span>
+                                {/* Invisible date input for picker functionality */}
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    max={todayDate} // Use our robust IST todayDate
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className="absolute inset-0 opacity-0 cursor-pointer"
+                                />
+                            </div>
+
+                            <button
+                                onClick={() => {
+                                    const date = new Date(selectedDate);
+                                    date.setDate(date.getDate() + 1);
+                                    setSelectedDate(date.toISOString().split('T')[0]);
+                                }}
+                                disabled={selectedDate === todayDate}
+                                className={`p-2 rounded-full transition-colors ${selectedDate === todayDate
+                                    ? "text-muted-foreground/30 cursor-not-allowed"
+                                    : "hover:bg-white/10 text-muted-foreground hover:text-foreground"
+                                    }`}
+                            >
+                                <ChevronRight className="w-4 h-4" />
+                            </button>
+                        </div>
+
                         <div className="flex gap-1 bg-black/5 dark:bg-black/20 p-1 rounded-xl border border-black/5 dark:border-white/5">
                             <button
                                 onClick={() => setActiveTab('stock')}

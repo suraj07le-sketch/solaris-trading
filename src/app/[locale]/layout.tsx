@@ -16,6 +16,7 @@ import { routing } from '@/i18n/routing';
 import { GlobalErrorSuppressor } from "@/components/ui/GlobalErrorSuppressor";
 import { ServiceWorkerRegistration } from "@/components/pwa/ServiceWorkerRegistration";
 import JsonLd from '@/components/seo/JsonLd';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 
 const outfit = Outfit({
     subsets: ['latin'],
@@ -98,7 +99,7 @@ export default async function LocaleLayout({
                 <meta name="apple-mobile-web-app-capable" content="yes" />
                 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
                 <meta name="apple-mobile-web-app-title" content="ShursunT" />
-                <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+                <link rel="apple-touch-icon" href="/favicon.ico" />
             </head>
             <body className={`${outfit.className} antialiased`} suppressHydrationWarning>
                 <JsonLd />
@@ -127,10 +128,12 @@ export default async function LocaleLayout({
                     >
                         <GlobalErrorSuppressor />
                         <ServiceWorkerRegistration />
-                        <AuthProvider>
-                            {children}
-                            <Toaster richColors position="bottom-right" theme="system" />
-                        </AuthProvider>
+                        <QueryProvider>
+                            <AuthProvider>
+                                {children}
+                                <Toaster richColors position="bottom-right" theme="system" />
+                            </AuthProvider>
+                        </QueryProvider>
                     </ThemeProvider>
                 </NextIntlClientProvider>
             </body>

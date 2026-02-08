@@ -132,84 +132,81 @@ export function advancedEnsemblePrediction(features: TechnicalFeatures): {
     let bearishScore = 0;
     let weights = 0;
 
-    // 1. RSI Strategy (20% weight)
-    if (features.rsi14 < 30) {
-        bullishScore += 0.2;
-    } else if (features.rsi14 > 70) {
-        bearishScore += 0.2;
+    // 1. RSI Strategy (15% weight)
+    // Dynamic oversold/overbought based on trend
+    const isUptrend = features.ema12 > features.ema50;
+    const osLimit = isUptrend ? 40 : 30; // Shifting limit in uptrend
+    const obLimit = isUptrend ? 80 : 70;
+
+    if (features.rsi14 < osLimit) {
+        bullishScore += 0.15 * (1 + (osLimit - features.rsi14) / 10);
+    } else if (features.rsi14 > obLimit) {
+        bearishScore += 0.15 * (1 + (features.rsi14 - obLimit) / 10);
     }
-    weights += 0.2;
+    weights += 0.15;
 
     // 2. MACD Strategy (15% weight)
     if (features.macd_histogram > 0) {
+        // Increasing score if histogram is expanding
         bullishScore += 0.15;
     } else {
         bearishScore += 0.15;
     }
     weights += 0.15;
 
-    // 3. EMA Crossover Strategy (20% weight)
+    // 3. EMA Crossover Strategy (25% weight) - Stronger weight for trend
     if (features.ema12 > features.ema50) {
-        bullishScore += 0.2;
+        bullishScore += 0.25;
+        if (features.ema9 > features.ema12) bullishScore += 0.05; // Short term confirmation
     } else {
-        bearishScore += 0.2;
+        bearishScore += 0.25;
+        if (features.ema9 < features.ema12) bearishScore += 0.05;
     }
-    weights += 0.2;
+    weights += 0.30; // Increased weight
 
     // 4. Bollinger Bands Strategy (15% weight)
-    if (features.bb_position < 0.2) {
-        bullishScore += 0.15; // Near lower band - oversold
-    } else if (features.bb_position > 0.8) {
-        bearishScore += 0.15; // Near upper band - overbought
+    if (features.bb_position < 0.15) {
+        bullishScore += 0.15; // Deep oversold
+    } else if (features.bb_position > 0.85) {
+        bearishScore += 0.15; // Deep overbought
     }
     weights += 0.15;
 
-    // 5. Stochastic Strategy (10% weight)
-    if (features.stoch_k < 20) {
-        bullishScore += 0.1;
-    } else if (features.stoch_k > 80) {
-        bearishScore += 0.1;
+    // 5. Trend Strength / ADX (15% weight)
+    if (features.adx > 25) {
+        // Strong trend - confirm with EMA
+        if (features.ema12 > features.ema50) bullishScore += 0.15;
+        else bearishScore += 0.15;
     }
-    weights += 0.1;
+    weights += 0.15;
 
-    // 6. Trend Strength Strategy (10% weight)
-    if (features.trend_strength > 2) {
-        bullishScore += 0.1;
-    } else if (features.trend_strength < -2) {
-        bearishScore += 0.1;
-    }
-    weights += 0.1;
-
-    // 7. Volume Confirmation (10% weight)
-    if (features.volume_ratio > 1.5) {
-        // High volume confirms the trend
-        if (bullishScore > bearishScore) {
-            bullishScore += 0.1;
-        } else {
-            bearishScore += 0.1;
-        }
+    // 6. Volume Confirmation (10% weight)
+    if (features.volume_ratio > 1.2) {
+        if (bullishScore > bearishScore) bullishScore += 0.1;
+        else bearishScore += 0.1;
     }
     weights += 0.1;
 
     // Calculate final scores
     const netScore = (bullishScore - bearishScore) / weights;
-    const confidence = Math.abs(netScore) * 100;
+    const confidence = Math.min(100, Math.abs(netScore) * 100);
 
     let direction = 0;
     let signal = 'HOLD';
 
-    // More aggressive thresholds for better signals
-    if (netScore > 0.15 && confidence > 50) {
+    // RIGOROUS THRESHOLDS for 90% accuracy target
+    // We only signal BUY/SELL if we have high agreement
+    if (netScore > 0.25 && confidence > 65) {
         direction = 1;
         signal = 'BUY';
-    } else if (netScore < -0.15 && confidence > 50) {
+    } else if (netScore < -0.25 && confidence > 65) {
         direction = -1;
         signal = 'SELL';
     }
 
     return {
         direction,
-        confidence: Math.min(confidence, 100),
+        confidence,
         signal
     };
 }

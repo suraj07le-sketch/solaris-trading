@@ -380,7 +380,15 @@ export default function PredictionsPage() {
 
                         {/* Existing predictions below */}
                         {(predictions ?? []).map((pred: any) => (
-                            <PredictionCard key={pred.id} pred={pred} isStock={activeTab === 'stock'} />
+                            <PredictionCard
+                                key={pred.id}
+                                pred={pred}
+                                isStock={activeTab === 'stock'}
+                                onRepredict={() => {
+                                    const symbol = activeTab === 'stock' ? (pred.stock_name || pred.name) : (pred.coin || pred.coin_id || pred.name);
+                                    generatePrediction(symbol, activeTab, pred.timeframe || '4h');
+                                }}
+                            />
                         ))}
                     </motion.div>
                 ) : (predictions?.length ?? 0) > 0 ? (
@@ -390,7 +398,15 @@ export default function PredictionsPage() {
                         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                     >
                         {(predictions ?? []).map((pred: any) => (
-                            <PredictionCard key={pred.id} pred={pred} isStock={activeTab === 'stock'} />
+                            <PredictionCard
+                                key={pred.id}
+                                pred={pred}
+                                isStock={activeTab === 'stock'}
+                                onRepredict={() => {
+                                    const symbol = activeTab === 'stock' ? (pred.stock_name || pred.name) : (pred.coin || pred.coin_id || pred.name);
+                                    generatePrediction(symbol, activeTab, pred.timeframe || '4h');
+                                }}
+                            />
                         ))}
                     </motion.div>
                 ) : (

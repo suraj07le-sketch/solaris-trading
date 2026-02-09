@@ -52,9 +52,10 @@ const safeFormatDate = (dateString: string | null | undefined) => {
 interface PredictionCardProps {
     pred: Prediction;
     isStock: boolean;
+    onRepredict?: () => void;
 }
 
-export function PredictionCard({ pred, isStock }: PredictionCardProps) {
+export function PredictionCard({ pred, isStock, onRepredict }: PredictionCardProps) {
     const normalizedTrend = (pred.trend || pred.signal || "").toUpperCase();
     const isBullish = normalizedTrend === "UP" || normalizedTrend === "BUY";
     const statusColor = pred.status === 'completed' ? 'text-green-500 bg-green-500/10' : 'text-yellow-500 bg-yellow-500/10';
@@ -82,15 +83,22 @@ export function PredictionCard({ pred, isStock }: PredictionCardProps) {
                         <span className="px-2 py-0.5 rounded-full bg-muted/50 border border-border/50 uppercase">
                             {pred.timeframe || "4H"}
                         </span>
-                        <span>CONFIDENCE: <span className="text-foreground font-bold">{pred.confidence || pred.accuracy_percent || 0}%</span></span>
+                        <span>CONFIDENCE: <span className="text-foreground font-bold">{Math.round(Number(pred.confidence || pred.accuracy_percent || 0))}%</span></span>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                    <div className={`relative flex items-center justify-center p-1.5 rounded-xl border bg-background/50 backdrop-blur-md shadow-[0_0_15px_-3px] transition-all duration-300 ${isBullish ? 'border-green-500/30 shadow-green-500/30' : 'border-red-500/30 shadow-red-500/30'}`}>
-                        <BrainCircuit className={`w-4 h-4 md:w-5 md:h-5 ${isBullish ? 'text-green-500' : 'text-red-500'}`} />
-                        <div className={`absolute inset-0 rounded-xl opacity-20 blur-[8px] ${isBullish ? 'bg-green-500' : 'bg-red-500'}`} />
-                    </div>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click if any
+                            onRepredict?.();
+                        }}
+                        className={`group/brain relative flex items-center justify-center p-1.5 rounded-xl border bg-background/50 backdrop-blur-md shadow-[0_0_15px_-3px] transition-all duration-300 cursor-pointer hover:scale-110 active:scale-95 ${isBullish ? 'border-green-500/30 shadow-green-500/30 hover:shadow-green-500/50' : 'border-red-500/30 shadow-red-500/30 hover:shadow-red-500/50'}`}
+                        title="Regenerate Prediction"
+                    >
+                        <BrainCircuit className={`w-4 h-4 md:w-5 md:h-5 transition-transform duration-700 group-hover/brain:rotate-180 ${isBullish ? 'text-green-500' : 'text-red-500'}`} />
+                        <div className={`absolute inset-0 rounded-xl opacity-20 blur-[8px] group-hover/brain:opacity-40 transition-opacity ${isBullish ? 'bg-green-500' : 'bg-red-500'}`} />
+                    </button>
 
                     <div className={`p-1.5 rounded-xl border border-transparent ${statusColor}`}>
                         {pred.status === 'completed' ? <CheckCircle size={18} /> : <Clock size={18} />}

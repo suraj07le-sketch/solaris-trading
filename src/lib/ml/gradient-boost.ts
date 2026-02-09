@@ -123,7 +123,7 @@ export function predictGradientBoosting(
 }
 
 // Advanced ensemble prediction using multiple strategies
-export function advancedEnsemblePrediction(features: TechnicalFeatures): {
+export function advancedEnsemblePrediction(features: TechnicalFeatures, timeframe: string = '1d'): {
     direction: number;
     confidence: number;
     signal: string;
@@ -132,18 +132,22 @@ export function advancedEnsemblePrediction(features: TechnicalFeatures): {
     let bearishScore = 0;
     let weights = 0;
 
-    // 1. RSI Strategy (15% weight)
+    const isShortTerm = ['1h', '4h', '8h', '12h'].includes(timeframe);
+
+    // 1. RSI Strategy (15% weight - 25% for short term)
     // Dynamic oversold/overbought based on trend
     const isUptrend = features.ema12 > features.ema50;
     const osLimit = isUptrend ? 40 : 30; // Shifting limit in uptrend
     const obLimit = isUptrend ? 80 : 70;
 
+    const rsiWeight = isShortTerm ? 0.25 : 0.15;
+
     if (features.rsi14 < osLimit) {
-        bullishScore += 0.15 * (1 + (osLimit - features.rsi14) / 10);
+        bullishScore += rsiWeight * (1 + (osLimit - features.rsi14) / 10);
     } else if (features.rsi14 > obLimit) {
-        bearishScore += 0.15 * (1 + (features.rsi14 - obLimit) / 10);
+        bearishScore += rsiWeight * (1 + (features.rsi14 - obLimit) / 10);
     }
-    weights += 0.15;
+    weights += rsiWeight;
 
     // 2. MACD Strategy (15% weight)
     if (features.macd_histogram > 0) {
@@ -154,23 +158,29 @@ export function advancedEnsemblePrediction(features: TechnicalFeatures): {
     }
     weights += 0.15;
 
-    // 3. EMA Crossover Strategy (25% weight) - Stronger weight for trend
+    // 3. EMA Crossover Strategy (25% weight - 15% for short term)
+    // Trend following is less reliable in choppy short term
+    const emaWeight = isShortTerm ? 0.15 : 0.30;
+
     if (features.ema12 > features.ema50) {
-        bullishScore += 0.25;
+        bullishScore += emaWeight;
         if (features.ema9 > features.ema12) bullishScore += 0.05; // Short term confirmation
     } else {
-        bearishScore += 0.25;
+        bearishScore += emaWeight;
         if (features.ema9 < features.ema12) bearishScore += 0.05;
     }
-    weights += 0.30; // Increased weight
+    weights += (emaWeight + 0.05);
 
-    // 4. Bollinger Bands Strategy (15% weight)
+    // 4. Bollinger Bands Strategy (15% weight - 20% for short term)
+    // Mean reversion is stronger in short term
+    const bbWeight = isShortTerm ? 0.20 : 0.15;
+
     if (features.bb_position < 0.15) {
-        bullishScore += 0.15; // Deep oversold
+        bullishScore += bbWeight; // Deep oversold
     } else if (features.bb_position > 0.85) {
-        bearishScore += 0.15; // Deep overbought
+        bearishScore += bbWeight; // Deep overbought
     }
-    weights += 0.15;
+    weights += bbWeight;
 
     // 5. Trend Strength / ADX (15% weight)
     if (features.adx > 25) {
@@ -189,17 +199,23 @@ export function advancedEnsemblePrediction(features: TechnicalFeatures): {
 
     // Calculate final scores
     const netScore = (bullishScore - bearishScore) / weights;
-    const confidence = Math.min(100, Math.abs(netScore) * 100);
+    // Boost confidence: Net score of 0.5 should be very high confidence (~75-80%)
+    // Short term needs higher sensitivity
+    const confidenceMultiplier = isShortTerm ? 180 : 120;
+    const confidence = Math.min(100, Math.abs(netScore) * confidenceMultiplier);
 
     let direction = 0;
     let signal = 'HOLD';
 
-    // RIGOROUS THRESHOLDS for 90% accuracy target
-    // We only signal BUY/SELL if we have high agreement
-    if (netScore > 0.25 && confidence > 65) {
+    // Adjusted Thresholds for Short Term
+    // We allow lower conviction to trigger signals in 4h/8h to catch swings
+    const signalThreshold = isShortTerm ? 0.15 : 0.25;
+    const confidenceCheck = isShortTerm ? 50 : 60; // Lowered slightly to match promoted confidence
+
+    if (netScore > signalThreshold && confidence > confidenceCheck) {
         direction = 1;
         signal = 'BUY';
-    } else if (netScore < -0.25 && confidence > 65) {
+    } else if (netScore < -signalThreshold && confidence > confidenceCheck) {
         direction = -1;
         signal = 'SELL';
     }

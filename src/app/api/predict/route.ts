@@ -319,7 +319,7 @@ async function fetchCryptoData(symbol: string, timeframe: string, expectedPrice?
     return null;
 }
 
-async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', timeframe: string = '4h', providedPrice?: number): Promise<any> {
+export async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', timeframe: string = '4h', providedPrice?: number): Promise<any> {
     try {
         // --- 1. CONCURRENT DATA FETCHING ---
         // Fetch Macro (1d) and timeframe specific data in parallel
@@ -352,7 +352,7 @@ async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', 
         const lstm = sequencePrediction(close); const multiHorizon = multiHorizonPrediction(close);
         const patterns = detectPatterns(close, high, low);
         const gbModel = trainGradientBoosting(features, 10, 0.1); const gbPred = predictGradientBoosting(gbModel, features);
-        const ensembleAdv = advancedEnsemblePrediction(features);
+        const ensembleAdv = advancedEnsemblePrediction(features, timeframe);
         const baseline = ensemblePrediction({ emaFast, emaSlow, rsi, macd, volatility, returns });
 
         const currentPrice = close[close.length - 1];
@@ -392,11 +392,23 @@ async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', 
 
         const finalConfidence = Math.min(98, totalConf + agreementBonus + Math.abs(patterns.bullishScore - patterns.bearishScore) * 0.2);
 
+        // --- PRE-CALCULATE FLAGS ---
+        const isShortTerm = ['1h', '4h', '8h', '12h'].includes(timeframe);
+        const strongAgreement = (Math.abs(lstm.prediction) > 0.05 && Math.abs(ensembleAdv.direction) > 0.05);
+        const macroAligned = (totalDirection > 0 && macroTrend === 'BULLISH') || (totalDirection < 0 && macroTrend === 'BEARISH');
+        const directionMatch = Math.sign(totalDirection) === Math.sign(multiHorizon.consensus);
+
         // VOLATILITY DAMPENING
         const latestVol = volatility.length > 0 ? volatility[volatility.length - 1] : 2;
-        const volDampener = latestVol > 5 ? 0.7 : 1.0; // Reduce confidence in high volatility (risky)
+        // For short term, volatility is an opportunity, not just risk. Dampen less.
+        const volDampener = isShortTerm
+            ? (latestVol > 8 ? 0.85 : 1.0) // Only dampen if extreme volatility (>8%)
+            : (latestVol > 5 ? 0.7 : 1.0); // Standard dampening for long term
 
-        const adjustedConfidence = finalConfidence * volDampener;
+        // Boost confidence for short term if signals align
+        const shortTermBoost = (isShortTerm && strongAgreement) ? 15 : 0;
+
+        const adjustedConfidence = Math.min(99, (finalConfidence + shortTermBoost) * volDampener);
 
         const predictedChange = multiHorizon.consensus * (adjustedConfidence / 100) * (latestVol / 100);
         const predictedPrice = currentPrice * (1 + predictedChange);
@@ -412,15 +424,16 @@ async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', 
         // 3. Multi-horizon consensus aligns with short-term direction
         // 4. Macro Trend Alignment (High conviction required to trade against macro)
 
-        const directionMatch = Math.sign(totalDirection) === Math.sign(multiHorizon.consensus);
-        const strongAgreement = (Math.abs(lstm.prediction) > 0.05 && Math.abs(ensembleAdv.direction) > 0.05);
-        const macroAligned = (totalDirection > 0 && macroTrend === 'BULLISH') || (totalDirection < 0 && macroTrend === 'BEARISH');
 
-        // Final eligibility
-        const isEligible = adjustedConfidence > 75 && directionMatch && strongAgreement;
+        const confidenceThreshold = isShortTerm ? 55 : 75;
+
+        const isEligible = adjustedConfidence > confidenceThreshold && directionMatch && (isShortTerm ? true : strongAgreement);
         const extremeConviction = adjustedConfidence > 90; // Override macro alignment if models are certain
 
-        if (isEligible && (macroAligned || extremeConviction)) {
+        // Counter-trend trade allowance for short term
+        const allowCounterTrend = isShortTerm && adjustedConfidence > 65;
+
+        if (isEligible && (macroAligned || extremeConviction || allowCounterTrend)) {
             if (totalDirection > 0.1) {
                 signal = 'BUY';
                 stopLoss = currentPrice - latestATR * 1.5;
@@ -430,7 +443,7 @@ async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', 
             }
         }
 
-        const validHours = timeframe === '1h' ? 1 : timeframe === '4h' ? 4 : 24;
+        const validHours = timeframe === '1h' ? 1 : timeframe === '4h' ? 4 : timeframe === '8h' ? 8 : timeframe === '12h' ? 12 : 24;
         const now = new Date();
         const validTill = new Date(now.getTime() + validHours * 60 * 60 * 1000);
 

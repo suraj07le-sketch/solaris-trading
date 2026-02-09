@@ -6,7 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import { WatchlistItem } from "@/types";
 import { LocalStorage } from "@/lib/storage";
 import "crypto-icons/font.css"; // Ensure icons are loaded
-import { Trash2, Brain } from "lucide-react";
+import { Trash2, Brain as BrainIcon } from "lucide-react"; // Renamed Brain to likely match usage if needed, or keeping Brain
+import { Brain } from "lucide-react";
 import Image from "next/image";
 import { getLogoUrl } from "@/lib/imageUtils";
 import { motion } from "framer-motion";
@@ -15,6 +16,8 @@ import { toast } from "sonner"; // Added import
 import { useRouter } from "next/navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import AssetIcon from "@/components/dashboard/AssetIcon";
+import { useWatchlist } from "@/hooks/useQueries";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Sub-component for individual watchlist items
 function WatchlistRow({ item, onDelete }: { item: WatchlistItem; onDelete: (id: string) => void }) {
@@ -236,15 +239,26 @@ const initCryptoCache = async () => {
 export default function WatchlistPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [activeTab, setActiveTab] = useState<'stock' | 'crypto'>('stock');
+
+    // Use React Query for data fetching
+    const { data: watchlist = [], isLoading: loading } = useWatchlist();
+
+    const [localWatchlist, setLocalWatchlist] = useState<WatchlistItem[]>([]);
+
+    // Sync React Query data to local state for filtering/manipulation
+    useEffect(() => {
+        if (watchlist) {
+            setLocalWatchlist(watchlist);
+        }
+    }, [watchlist]);
 
     // Auto-switch tab if one is empty
     useEffect(() => {
-        if (!loading && watchlist.length > 0) {
-            const hasStocks = watchlist.some(i => (i.asset_type || 'crypto') === 'stock');
-            const hasCrypto = watchlist.some(i => (i.asset_type || 'crypto') === 'crypto');
+        if (!loading && localWatchlist.length > 0) {
+            const hasStocks = localWatchlist.some(i => (i.asset_type || 'crypto') === 'stock');
+            const hasCrypto = localWatchlist.some(i => (i.asset_type || 'crypto') === 'crypto');
 
             if (!hasStocks && hasCrypto && activeTab === 'stock') {
                 setActiveTab('crypto');
@@ -252,68 +266,33 @@ export default function WatchlistPage() {
                 setActiveTab('stock');
             }
         }
-    }, [loading, watchlist.length]);
+    }, [loading, localWatchlist.length, activeTab]); // Added activeTab to deps to prevent loops if state stabilizes
 
-    const filteredWatchlist = watchlist.filter(item =>
-        // Filter by asset_type. Fallback to 'crypto' for old items without type if needed, or 'stock' based on assumption. 
-        // For now, let's assume if type is missing, it shows in both or one. We'll strict check.
+    const filteredWatchlist = localWatchlist.filter(item =>
         (item.asset_type || 'crypto') === activeTab
     );
 
-    const fetchWatchlist = async (signal?: AbortSignal) => {
-        if (!user) {
-            if (!signal?.aborted) setLoading(false);
-            return;
-        }
+    // Realtime subscription to keep data fresh
+    useEffect(() => {
+        if (!user) return;
 
-        // 1. Fetch from LocalStorage (Instant)
-        const localData = LocalStorage.getWatchlist(user.id);
-        if (localData.length > 0) {
-            setWatchlist(localData);
-        }
+        const channel = supabase
+            .channel('watchlist-realtime')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'watchlist', filter: `user_id=eq.${user.id}` },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+                }
+            )
+            .subscribe();
 
-        // 2. Fetch from Supabase (Sync/Backup)
-        try {
-            const query = supabase
-                .from("watchlist")
-                .select("*")
-                .eq("user_id", user.id);
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [user, queryClient]);
 
-            if (signal) {
-                query.abortSignal(signal);
-            }
-
-            const { data, error } = await query;
-
-            if (signal?.aborted) return;
-
-            if (data) {
-                // Sort by created_at descending (newest first)
-                const sortedData = (data as WatchlistItem[]).sort((a, b) => {
-                    const dateA = new Date(a.created_at || 0).getTime();
-                    const dateB = new Date(b.created_at || 0).getTime();
-                    return dateB - dateA; // Newest first
-                });
-                const combined: WatchlistItem[] = [...sortedData];
-                (localData as any[]).forEach(localItem => {
-                    if (!combined.find(c => c.coin_id === localItem.coin_id)) {
-                        combined.push(localItem);
-                    }
-                });
-                setWatchlist(combined);
-            }
-        } catch (err: any) {
-            if (err.name !== 'AbortError') {
-                console.error("Error fetching watchlist", err);
-            }
-        } finally {
-            if (!signal?.aborted) {
-                setLoading(false);
-            }
-        }
-    };
-
-    const fixWatchlistTypes = async (currentWatchlist: WatchlistItem[], signal?: AbortSignal) => {
+    const fixWatchlistTypes = async (currentWatchlist: WatchlistItem[]) => {
         // Use cached crypto IDs for faster checks
         const cryptoIdSet = getCryptoIdSet();
 
@@ -324,6 +303,10 @@ export default function WatchlistPage() {
                 hasUpdates = true;
                 // Fire and forget Supabase update
                 supabase.from('watchlist').update({ asset_type: 'crypto' }).eq('id', item.id)
+                    .then(() => {
+                        // Invalidate to refresh data cleanly after fix
+                        queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+                    })
                     .catch(() => { });
                 return { ...item, asset_type: 'crypto' as const };
             }
@@ -331,92 +314,45 @@ export default function WatchlistPage() {
         });
 
         if (hasUpdates) {
-            console.log("Fixed misclassified watchlist items");
-            if (!signal?.aborted) {
-                setWatchlist(updatedList);
-                if (user?.id) {
-                    localStorage.setItem(`nexus_watchlist_${user.id}`, JSON.stringify(updatedList));
-                }
-            }
+            setLocalWatchlist(updatedList);
         }
     };
 
     useEffect(() => {
         if (!user) return;
-
-        // Initialize crypto cache on first load
         initCryptoCache();
-
-        const controller = new AbortController();
-
-        const load = async () => {
-            await fetchWatchlist(controller.signal);
-        };
-        load();
-
-        const channel = supabase
-            .channel('watchlist-realtime')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'watchlist', filter: `user_id=eq.${user?.id}` },
-                (payload: any) => {
-                    if (payload.eventType === 'INSERT') {
-                        setWatchlist((prev) => {
-                            if (prev.find(i => i.id === payload.new.id)) return prev;
-                            // Add new item at the beginning (newest first)
-                            return [payload.new as WatchlistItem, ...prev];
-                        });
-                    } else if (payload.eventType === 'DELETE') {
-                        setWatchlist((prev) => prev.filter((item) => item.id !== payload.old.id));
-                    }
-                }
-            )
-            .subscribe();
-
-        return () => {
-            controller.abort();
-            supabase.removeChannel(channel);
-        };
-    }, [user]);
-
-    // Refresh on focus
-    useEffect(() => {
-        const handleFocus = () => {
-            if (user) {
-                const controller = new AbortController();
-                fetchWatchlist(controller.signal);
-            }
-        };
-        window.addEventListener('focus', handleFocus);
-        return () => window.removeEventListener('focus', handleFocus);
     }, [user]);
 
     useEffect(() => {
-        const controller = new AbortController();
-        if (watchlist.length > 0 && !loading) {
-            fixWatchlistTypes(watchlist, controller.signal).catch(e => {
-                if (e.name !== 'AbortError') console.error(e);
-            });
+        if (localWatchlist.length > 0 && !loading) {
+            fixWatchlistTypes(localWatchlist);
         }
-        return () => {
-            controller.abort();
-        };
-    }, [watchlist.length, loading]);
+    }, [localWatchlist.length, loading]);
 
     const handleDelete = async (id: string) => {
         if (!user) return;
 
-        // 1. Delete from LocalStorage
-        const itemToDelete = watchlist.find(i => i.id === id);
+        // Optimistic Update
+        setLocalWatchlist((prev) => prev.filter((item) => item.id !== id));
+
+        // 1. Delete from LocalStorage (Legacy support)
+        const itemToDelete = localWatchlist.find(i => i.id === id);
         if (itemToDelete) {
             LocalStorage.removeFromWatchlist(user.id, itemToDelete.coin_id);
         }
 
-        // Optimistic Update
-        setWatchlist((prev) => prev.filter((item) => item.id !== id));
-
         // 2. Delete from Supabase
-        await supabase.from("watchlist").delete().eq("id", id);
+        const { error } = await supabase.from("watchlist").delete().eq("id", id);
+
+        if (!error) {
+            toast.success("Item removed from watchlist");
+            // Invalidate query to ensure sync
+            queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+        } else {
+            toast.error("Failed to remove item");
+            // Revert optimistic update (simplified: just invalidate)
+            queryClient.invalidateQueries({ queryKey: ['watchlist'] });
+        }
     };
 
     if (loading) {

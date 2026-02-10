@@ -11,7 +11,7 @@ import { HoverBorderGradient } from "@/components/ui/hover-border-gradient";
 import { cn } from "@/lib/utils";
 import { SolarisIcon } from "@/components/ui/SolarisIcon";
 import { Sparkles } from "@/components/ui/sparkles";
-import { ThinShineText } from "@/components/ui/thin-shine-effect";
+
 import { useTranslations } from "next-intl";
 
 
@@ -65,15 +65,26 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
             >
 
                 {/* Logo & Brand */}
-                <div className="flex flex-col gap-3 mb-16 pr-12 transition-all">
-                    <div className="flex items-center gap-1">
-                        <div className="relative">
-                            <SolarisIcon className="w-10 h-10 text-primary flex-shrink-0" />
-                            <div className="absolute inset-0 rounded-full border-2 border-primary/30 opacity-0 hover:opacity-100 hover:scale-125 transition-all duration-300" />
+                <div className="flex flex-col gap-3 mb-16 transition-all w-full">
+                    <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-1">
+                            <div className="relative">
+                                <SolarisIcon className="w-10 h-10 text-primary flex-shrink-0" />
+                                <div className="absolute inset-0 rounded-full border-2 border-primary/30 opacity-0 hover:opacity-100 hover:scale-125 transition-all duration-300" />
+                            </div>
+                            <h1 className="text-2xl font-black text-gradient">
+                                SHURSUNT
+                            </h1>
                         </div>
-                        <h1 className="text-2xl font-black text-gradient">
-                            SHURSUNT
-                        </h1>
+
+                        {/* Mobile Close Button (In Flow) */}
+                        <button
+                            onClick={onClose}
+                            className="p-2 bg-black/20 hover:bg-red-500/10 rounded-full border border-white/10 hover:border-red-500/50 transition-all duration-300 md:hidden group hover:shadow-[0_0_15px_rgba(239,68,68,0.2)] active:scale-95 flex-shrink-0 ml-2 -translate-y-1"
+                            title="Close Sidebar"
+                        >
+                            <X size={20} className="text-neutral-400 group-hover:text-red-500 transition-colors" />
+                        </button>
                     </div>
                     <div className="pl-1">
                         <p className="text-[10px] text-muted-foreground tracking-[0.4em] font-black uppercase opacity-60 leading-tight">
@@ -83,15 +94,6 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                         </p>
                     </div>
                 </div>
-
-                {/* Mobile Close Button */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-6 right-6 p-2 bg-black/20 hover:bg-red-500/10 rounded-full border border-white/10 hover:border-red-500/50 transition-all duration-300 md:hidden group z-50 hover:shadow-[0_0_15px_rgba(239,68,68,0.2)] active:scale-95"
-                    title="Close Sidebar"
-                >
-                    <X size={20} className="text-neutral-400 group-hover:text-red-500 transition-colors" />
-                </button>
 
                 {/* Nav */}
                 <nav className="flex-1 space-y-2">
@@ -207,9 +209,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                                             pathname === "/settings" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
                                         )}
                                     >
-                                        <ThinShineText shineColor="hsl(var(--primary) / 0.6)" duration={600}>
-                                            {t('settings')}
-                                        </ThinShineText>
+                                        {t('settings')}
                                     </span>
                                 </div>
                             </div>

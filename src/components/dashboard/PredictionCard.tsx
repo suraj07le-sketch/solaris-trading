@@ -1,11 +1,14 @@
 "use client";
 
+import { useTrendMonitor } from "@/hooks/useTrendMonitor";
+import { useState } from "react";
+import { Bell, BellOff, BrainCircuit, CheckCircle, Clock, TrendingDown, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
-import { BrainCircuit, CheckCircle, Clock, TrendingDown, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import Tilt from "react-parallax-tilt";
 import { usePerformanceTier } from "@/hooks/usePerformanceTier";
 import { Prediction } from "@/types/prediction";
+import { toast } from "sonner";
 
 // Helper to clean up messy coin symbols (e.g. TRXUSDTUSD -> TRX)
 const cleanSymbol = (symbol: string | null | undefined) => {
@@ -56,6 +59,16 @@ interface PredictionCardProps {
 }
 
 export function PredictionCard({ pred, isStock, onRepredict }: PredictionCardProps) {
+    const [monitorEnabled, setMonitorEnabled] = useState(false);
+    const symbol = pred.stock_name || pred.coin || pred.name || "";
+
+    // Enable trend monitoring (only for crypto 4h for now as per MVP)
+    useTrendMonitor({
+        symbol: cleanSymbol(symbol),
+        isScript: isStock,
+        enabled: monitorEnabled
+    });
+
     const normalizedTrend = (pred.trend || pred.signal || "").toUpperCase();
     const isBullish = normalizedTrend === "UP" || normalizedTrend === "BUY";
     const statusColor = pred.status === 'completed' ? 'text-green-500 bg-green-500/10' : 'text-yellow-500 bg-yellow-500/10';
@@ -88,6 +101,18 @@ export function PredictionCard({ pred, isStock, onRepredict }: PredictionCardPro
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setMonitorEnabled(!monitorEnabled);
+                            toast.info(monitorEnabled ? "Trend alerts disabled" : "Trend alerts enabled (1h frame)");
+                        }}
+                        className={`p-1.5 rounded-xl border transition-all ${monitorEnabled ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-background/50 text-muted-foreground border-transparent hover:bg-muted/50'}`}
+                        title={monitorEnabled ? "Disable Trend Alerts" : "Enable Trend Alerts"}
+                    >
+                        {monitorEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+                    </button>
+
                     <button
                         onClick={(e) => {
                             e.stopPropagation(); // Prevent card click if any

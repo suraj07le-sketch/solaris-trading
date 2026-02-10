@@ -7,6 +7,7 @@ import { SolarisIcon } from "@/components/ui/SolarisIcon";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { DashboardProvider } from "@/context/DashboardContext";
+import { WatchlistTrendManager } from "@/components/logic/WatchlistTrendManager";
 
 export default function DashboardLayout({
     children,
@@ -22,6 +23,7 @@ export default function DashboardLayout({
 
     return (
         <DashboardProvider>
+            <WatchlistTrendManager />
             <div className="flex h-screen overflow-hidden relative">
 
                 {/* Mobile Header (Hidden on Desktop) */}

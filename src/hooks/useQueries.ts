@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 
 import { Prediction } from "@/types/prediction";
 
-// --- Hooks ---
+const DEMO_USER_ID = "00000000-0000-0000-0000-000000000000"; // Placeholder for public/demo predictions
 
 /**
  * Fetch all market data (Stocks or Crypto)
@@ -42,8 +42,8 @@ export function useMarketData(type: 'stock' | 'crypto' = 'stock', initialData: a
             return results.length > 0 ? results : initialData;
         },
         initialData: initialData.length > 0 ? initialData : undefined,
-        staleTime: 5 * 60 * 1000,
-        refetchOnWindowFocus: false,
+        staleTime: 2 * 60 * 1000, // 2 mins
+        refetchOnWindowFocus: true,
     });
 }
 
@@ -70,9 +70,9 @@ export function useSyncMarketData() {
             }
             return null;
         },
-        refetchInterval: 300000, // Sync every 5 minutes (was 1m) to avoid 429
-        staleTime: 60000,
-        refetchOnWindowFocus: false, // Don't trigger on tab switch
+        refetchInterval: 60000, // Sync every 1 min
+        staleTime: 30000,
+        refetchOnWindowFocus: true,
     });
 }
 
@@ -94,7 +94,8 @@ export function useWatchlist() {
             return data || [];
         },
         enabled: !!user,
-        staleTime: 5 * 60 * 1000,
+        staleTime: 30 * 1000, // 30 seconds
+        refetchOnWindowFocus: true,
     });
 }
 
@@ -154,7 +155,8 @@ export function usePredictions(type: 'stock' | 'crypto', date?: string): UseQuer
             });
         },
         enabled: !!user,
-        staleTime: 5 * 60 * 1000,
+        staleTime: 60 * 1000, // 1 minute
+        refetchOnWindowFocus: true,
     });
 }
 

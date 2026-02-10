@@ -398,17 +398,19 @@ export async function generatePrediction(asset: string, assetType: 'stock' | 'cr
         const macroAligned = (totalDirection > 0 && macroTrend === 'BULLISH') || (totalDirection < 0 && macroTrend === 'BEARISH');
         const directionMatch = Math.sign(totalDirection) === Math.sign(multiHorizon.consensus);
 
-        // VOLATILITY DAMPENING
+        // VOLATILITY AS OPPORTUNITY (Short Term)
         const latestVol = volatility.length > 0 ? volatility[volatility.length - 1] : 2;
-        // For short term, volatility is an opportunity, not just risk. Dampen less.
-        const volDampener = isShortTerm
-            ? (latestVol > 8 ? 0.85 : 1.0) // Only dampen if extreme volatility (>8%)
-            : (latestVol > 5 ? 0.7 : 1.0); // Standard dampening for long term
+        // For short term, HIGH volatility often means breakout, not risk.
+        // If 1h/4h and volatility is high (>5), we actually want to BOOST confidence, not damp it.
+        const volMultiplier = isShortTerm
+            ? (latestVol > 5 ? 1.1 : 1.0) // 10% boost for high volatility breakouts
+            : (latestVol > 5 ? 0.7 : 1.0); // Classic dampening for long term stability
 
         // Boost confidence for short term if signals align
-        const shortTermBoost = (isShortTerm && strongAgreement) ? 15 : 0;
+        const shortTermBoost = (isShortTerm && strongAgreement) ? 20 : 0; // Increased boost
 
-        const adjustedConfidence = Math.min(99, (finalConfidence + shortTermBoost) * volDampener);
+        // Final Adjustment
+        const adjustedConfidence = Math.min(99, (finalConfidence + shortTermBoost) * volMultiplier);
 
         const predictedChange = multiHorizon.consensus * (adjustedConfidence / 100) * (latestVol / 100);
         const predictedPrice = currentPrice * (1 + predictedChange);
@@ -417,33 +419,40 @@ export async function generatePrediction(asset: string, assetType: 'stock' | 'cr
         const latestATR = atr[atr.length - 1] || currentPrice * 0.02;
         let stopLoss = currentPrice;
 
-        // --- THE "90% ACCURACY" FILTER ---
-        // We only issue a BUY/SELL if:
-        // 1. Adjusted Confidence is > 75%
-        // 2. At least 2 models strongly agree
-        // 3. Multi-horizon consensus aligns with short-term direction
-        // 4. Macro Trend Alignment (High conviction required to trade against macro)
+        // --- THE "NEXT 5 CANDLES" LOGIC ---
+        // User wants accurate trend for next ~5 units.
+        // We relax the threshold for 1h/4h to allow more active trading.
 
+        const confidenceThreshold = isShortTerm ? 60 : 75; // Lowered to 60 for short term to catch more moves
 
-        const confidenceThreshold = isShortTerm ? 55 : 75;
+        const isEligible = adjustedConfidence > confidenceThreshold;
 
-        const isEligible = adjustedConfidence > confidenceThreshold && directionMatch && (isShortTerm ? true : strongAgreement);
-        const extremeConviction = adjustedConfidence > 90; // Override macro alignment if models are certain
+        // MOMENTUM CHECK: If short term, we care more about recent momentum (RSI/MACD) than macro trend
+        const momentumAligned = (ensembleAdv.direction > 0 && totalDirection > 0) || (ensembleAdv.direction < 0 && totalDirection < 0);
 
-        // Counter-trend trade allowance for short term
-        const allowCounterTrend = isShortTerm && adjustedConfidence > 65;
+        // We allow trade IF:
+        // 1. Confidence is high enough
+        // 2. Momentum aligns with prediction (essential for "next 5 candles")
+        // 3. EITHER: Macro aligns OR it's a short-term trade (we ignore macro for 1h/4h scalp)
 
-        if (isEligible && (macroAligned || extremeConviction || allowCounterTrend)) {
-            if (totalDirection > 0.1) {
+        const shouldTrade = isEligible && momentumAligned && (isShortTerm || macroAligned);
+
+        if (shouldTrade) {
+            if (totalDirection > 0.05) { // Lowered from 0.1 to catch start of moves
                 signal = 'BUY';
                 stopLoss = currentPrice - latestATR * 1.5;
-            } else if (totalDirection < -0.1) {
+            } else if (totalDirection < -0.05) {
                 signal = 'SELL';
                 stopLoss = currentPrice + latestATR * 1.5;
             }
         }
 
-        const validHours = timeframe === '1h' ? 1 : timeframe === '4h' ? 4 : timeframe === '8h' ? 8 : timeframe === '12h' ? 12 : 24;
+        // NEXT 5 CANDLES VALIDITY
+        let validHours = 24;
+        if (timeframe === '1h') validHours = 5;
+        if (timeframe === '4h') validHours = 20; // 5 * 4h
+        if (timeframe === '8h') validHours = 40;
+
         const now = new Date();
         const validTill = new Date(now.getTime() + validHours * 60 * 60 * 1000);
 

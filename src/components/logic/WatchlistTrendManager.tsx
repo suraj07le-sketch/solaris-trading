@@ -27,7 +27,7 @@ export function WatchlistTrendManager() {
 
     // Filter for supported assets (Crypto only for now)
     // The cleanSymbol logic might be needed if symbols are messy like "BTCUSDTUSD"
-    const validItems = watchlist.filter(item => {
+    const validItems = watchlist.filter((item: any) => {
         // Assuming asset_type is reliable. If not, we can infer from symbol.
         // For existing logic, assume 'crypto' type or if it looks like a pair
         return item.asset_type === 'crypto';

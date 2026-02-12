@@ -12,19 +12,22 @@ export interface StockInsight {
     status?: "UP" | "DOWN";
 }
 
-// Helper to build proxy URL
+// Helper to build proxy URL - ensuring we use the 'url' parameter which is more robust
 const buildProxyUrl = (endpoint: string, params?: Record<string, string>) => {
-    const searchParams = new URLSearchParams({ endpoint, ...params });
-    return `/api/proxy?${searchParams.toString()}`;
+    const baseUrl = "https://stock.indianapi.in";
+    const searchParams = new URLSearchParams(params);
+    const queryString = searchParams.toString();
+    const targetUrl = `${baseUrl}/${endpoint}${queryString ? `?${queryString}` : ""}`;
+    return `/api/proxy?url=${encodeURIComponent(targetUrl)}`;
 };
 
 export const fetchTrendingStocks = async () => {
     try {
-        const res = await fetch(buildProxyUrl("trending"));
+        const res = await fetch(buildProxyUrl("trending_stocks"));
         if (!res.ok) throw new Error("API Offline");
         return await res.json();
     } catch (err) {
-        // Fallback mock data when API is unavailable
+        console.warn("[MarketInsights] Trending fetch failed, using fallback");
         return [
             { symbol: "TATAELXSI", stock_name: "Tata Elxsi", current_price: 7850.45, change_percent: 2.34 },
             { symbol: "RELIANCE", stock_name: "Reliance Ind", current_price: 2456.20, change_percent: 1.15 },
@@ -37,27 +40,41 @@ export const fetchTrendingStocks = async () => {
 
 export const fetchNSEMostActive = async () => {
     try {
+        // Correct endpoint as per probe-nse.js: NSE_most_active
         const res = await fetch(buildProxyUrl("NSE_most_active"));
-        if (!res.ok) return [];
+        if (!res.ok) throw new Error("API Path Error");
         const data = await res.json();
 
-        // Map API response to StockInsight interface
-        return data.map((item: any) => ({
+        const list = Array.isArray(data) ? data : (data.data || []);
+        if (!Array.isArray(list)) return [];
+
+        return list.map((item: any) => ({
             symbol: item.ticker ? item.ticker.replace('.NS', '') : item.symbol,
-            stock_name: item.company || item.stock_name,
-            current_price: item.price || item.current_price,
-            change_percent: item.percent_change || item.change_percent,
-            status: (item.percent_change || item.change_percent) >= 0 ? "UP" : "DOWN"
+            stock_name: item.company || item.stock_name || item.name,
+            current_price: item.price || item.current_price || item.currentPrice?.NSE || 0,
+            change_percent: item.percent_change || item.change_percent || item.pChange || 0,
+            status: (item.percent_change || item.change_percent || item.pChange || 0) >= 0 ? "UP" : "DOWN"
         }));
-    } catch (err) { return []; }
+    } catch (err: any) {
+        if (err.message?.includes("429")) {
+            console.warn("[MarketInsights] Rate Limit Exceeded (429) for NSE Most Active. Cooling down...");
+        } else {
+            console.warn("[MarketInsights] NSE Most Active fetch failed", err);
+        }
+        return [];
+    }
 };
 
 export const fetch52WeekHighLow = async () => {
     try {
-        const res = await fetch(buildProxyUrl("fetch_52_week_high_low_data"));
-        if (!res.ok) return { high: [], low: [] };
+        // Common pattern for this API
+        const res = await fetch(buildProxyUrl("52_week_high_low"));
+        if (!res.ok) throw new Error("API Path Error");
         return await res.json();
-    } catch (err) { return { high: [], low: [] }; }
+    } catch (err) {
+        console.warn("[MarketInsights] 52 Week High/Low fetch failed");
+        return { high: [], low: [] };
+    }
 };
 
 export const searchMutualFunds = async (query: string) => {

@@ -16,6 +16,7 @@ export function MarketActivityBento() {
             };
         },
         staleTime: 15 * 60 * 1000, // 15 minutes cache
+        refetchInterval: 30 * 60 * 1000, // 30 mins polling
         retry: 1, // Don't hammer the API if it fails
         refetchOnWindowFocus: false, // Prevent 429s on tab switch
     });

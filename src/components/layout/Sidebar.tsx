@@ -57,6 +57,9 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
             {/* Sidebar Container */}
             <aside
+                id="main-sidebar"
+                role="navigation"
+                aria-label="Main Navigation"
                 className={cn(
                     "fixed top-0 left-0 z-50 h-screen w-64 bg-background/95 backdrop-blur-xl border-r border-border flex flex-col justify-between p-8 transition-transform duration-300 shadow-2xl",
                     isOpen ? "translate-x-0" : "-translate-x-full",
@@ -103,6 +106,7 @@ export default function Sidebar({ isOpen = false, onClose }: SidebarProps) {
                             <Link
                                 key={item.href}
                                 href={item.href}
+                                aria-label={`Navigate to ${item.name}`}
                                 onClick={() => {
                                     if (window.innerWidth < 1024) onClose?.();
                                 }}

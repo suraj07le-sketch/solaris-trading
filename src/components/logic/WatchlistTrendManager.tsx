@@ -25,20 +25,12 @@ export function WatchlistTrendManager() {
 
     if (!watchlist || watchlist.length === 0) return null;
 
-    // Filter for supported assets (Crypto only for now)
-    // The cleanSymbol logic might be needed if symbols are messy like "BTCUSDTUSD"
-    const validItems = watchlist.filter((item: any) => {
-        // Assuming asset_type is reliable. If not, we can infer from symbol.
-        // For existing logic, assume 'crypto' type or if it looks like a pair
-        return item.asset_type === 'crypto';
-    });
-
     return (
         <>
-            {validItems.map((item: any) => (
+            {watchlist.map((item: any) => (
                 <SingleAssetMonitor
-                    key={item.id || item.symbol}
-                    symbol={item.symbol}
+                    key={item.id}
+                    symbol={item.coin_data?.symbol || item.symbol}
                     type={item.asset_type || 'crypto'}
                 />
             ))}

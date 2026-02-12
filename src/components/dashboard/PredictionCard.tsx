@@ -2,7 +2,7 @@
 
 import { useTrendMonitor } from "@/hooks/useTrendMonitor";
 import { useState } from "react";
-import { Bell, BellOff, BrainCircuit, CheckCircle, Clock, TrendingDown, TrendingUp } from "lucide-react";
+import { Bell, BellOff, BrainCircuit, CheckCircle, Clock, TrendingDown, TrendingUp, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import Tilt from "react-parallax-tilt";
@@ -97,6 +97,13 @@ export function PredictionCard({ pred, isStock, onRepredict }: PredictionCardPro
                             {pred.timeframe || "4H"}
                         </span>
                         <span>CONFIDENCE: <span className="text-foreground font-bold">{Math.round(Number(pred.confidence || pred.accuracy_percent || 0))}%</span></span>
+
+                        {(pred as any).market_alignment !== undefined && (
+                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full border ${(pred as any).market_alignment > 70 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}`}>
+                                <Sparkles size={10} />
+                                ALIGNMENT: {(pred as any).market_alignment}%
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -108,6 +115,7 @@ export function PredictionCard({ pred, isStock, onRepredict }: PredictionCardPro
                             toast.info(monitorEnabled ? "Trend alerts disabled" : "Trend alerts enabled (1h frame)");
                         }}
                         className={`p-1.5 rounded-xl border transition-all ${monitorEnabled ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-background/50 text-muted-foreground border-transparent hover:bg-muted/50'}`}
+                        aria-label={monitorEnabled ? "Disable Trend Alerts" : "Enable Trend Alerts"}
                         title={monitorEnabled ? "Disable Trend Alerts" : "Enable Trend Alerts"}
                     >
                         {monitorEnabled ? <Bell size={18} /> : <BellOff size={18} />}
@@ -119,6 +127,7 @@ export function PredictionCard({ pred, isStock, onRepredict }: PredictionCardPro
                             onRepredict?.();
                         }}
                         className={`group/brain relative flex items-center justify-center p-1.5 rounded-xl border bg-background/50 backdrop-blur-md shadow-[0_0_15px_-3px] transition-all duration-300 cursor-pointer hover:scale-110 active:scale-95 ${isBullish ? 'border-green-500/30 shadow-green-500/30 hover:shadow-green-500/50' : 'border-red-500/30 shadow-red-500/30 hover:shadow-red-500/50'}`}
+                        aria-label="Regenerate Prediction"
                         title="Regenerate Prediction"
                     >
                         <BrainCircuit className={`w-4 h-4 md:w-5 md:h-5 transition-transform duration-700 group-hover/brain:rotate-180 ${isBullish ? 'text-green-500' : 'text-red-500'}`} />

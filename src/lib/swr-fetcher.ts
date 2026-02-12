@@ -14,7 +14,7 @@ export const swrFetcher = async (url: string) => {
     if (isIndianApi && !url.startsWith('/api')) {
         // This part is actually redundant if we use the proxy correctly, 
         // but keeping logic safe for direct calls if CORS allows.
-        headers["X-Api-Key"] = process.env.NEXT_PUBLIC_INDIAN_API_KEY || "sk-live-ASP6f2VKjpJhs4yUrBjmRXw5kUI6gUVRlLrhmrYv";
+        headers["X-Api-Key"] = process.env.NEXT_PUBLIC_INDIAN_API_KEY || "";
     }
 
     const res = await fetch(finalUrl, { headers });

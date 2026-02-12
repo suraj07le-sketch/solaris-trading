@@ -42,8 +42,8 @@ export function useMarketData(type: 'stock' | 'crypto' = 'stock', initialData: a
             return results.length > 0 ? results : initialData;
         },
         initialData: initialData.length > 0 ? initialData : undefined,
-        staleTime: 2 * 60 * 1000, // 2 mins
-        refetchOnWindowFocus: true,
+        staleTime: 5 * 60 * 1000, // 5 mins
+        refetchOnWindowFocus: false,
     });
 }
 
@@ -70,9 +70,9 @@ export function useSyncMarketData() {
             }
             return null;
         },
-        refetchInterval: 60000, // Sync every 1 min
-        staleTime: 30000,
-        refetchOnWindowFocus: true,
+        refetchInterval: 5 * 60 * 1000, // Sync every 5 mins
+        staleTime: 2 * 60 * 1000,
+        refetchOnWindowFocus: false,
     });
 }
 
@@ -94,8 +94,8 @@ export function useWatchlist() {
             return data || [];
         },
         enabled: !!user,
-        staleTime: 30 * 1000, // 30 seconds
-        refetchOnWindowFocus: true,
+        staleTime: 60 * 1000, // 1 minute
+        refetchOnWindowFocus: false,
     });
 }
 
@@ -155,8 +155,8 @@ export function usePredictions(type: 'stock' | 'crypto', date?: string): UseQuer
             });
         },
         enabled: !!user,
-        staleTime: 60 * 1000, // 1 minute
-        refetchOnWindowFocus: true,
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        refetchOnWindowFocus: false,
     });
 }
 
@@ -195,7 +195,8 @@ export function useMutualFunds(query: string) {
         queryKey: ['mutual-funds', query],
         queryFn: async () => {
             if (query.length < 3) return [];
-            const res = await fetch(`https://stock.indianapi.in/mutual_fund_search?query=${query}`);
+            const targetUrl = `https://stock.indianapi.in/mutual_fund_search?query=${query}`;
+            const res = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
             return res.json();
         },
         enabled: query.length >= 3,
@@ -210,7 +211,8 @@ export function useIPOData() {
     return useQuery({
         queryKey: ['ipo-data'],
         queryFn: async () => {
-            const res = await fetch('https://stock.indianapi.in/ipo');
+            const targetUrl = 'https://stock.indianapi.in/ipo';
+            const res = await fetch(`/api/proxy?url=${encodeURIComponent(targetUrl)}`);
             return res.json();
         },
         staleTime: 15 * 60 * 1000,

@@ -20,7 +20,7 @@ import { sequencePrediction, multiHorizonPrediction, detectPatterns } from '@/li
 // ============================================
 
 const ALPHA_VANTAGE_API_KEY = process.env.ALPHA_VANTAGE_API_KEY || 'demo';
-const INDIAN_API_KEY = process.env.INDIAN_API_KEY || process.env.NEXT_PUBLIC_INDIAN_API_KEY || "sk-live-ASP6f2VKjpJhs4yUrBjmRXw5kUI6gUVRlLrhmrYv";
+const INDIAN_API_KEY = process.env.INDIAN_API_KEY || "";
 
 declare global {
     var modelCache: Map<string, any>;
@@ -322,14 +322,19 @@ async function fetchCryptoData(symbol: string, timeframe: string, expectedPrice?
 export async function generatePrediction(asset: string, assetType: 'stock' | 'crypto', timeframe: string = '4h', providedPrice?: number): Promise<any> {
     try {
         // --- 1. CONCURRENT DATA FETCHING ---
-        // Fetch Macro (1d) and timeframe specific data in parallel
+        // Fetch Macro (1d), timeframe specific data, and BTC trend in parallel
         const macroPromise = assetType === 'stock' ? fetchStockData(asset, providedPrice) : fetchCryptoData(asset, '1d', providedPrice);
 
         // If timeframe is 1d, don't fetch twice
         const timeframePromise = timeframe === '1d' ? macroPromise :
             (assetType === 'stock' ? fetchStockData(asset, providedPrice) : fetchCryptoData(asset, timeframe, providedPrice));
 
-        const [macroData, marketData] = await Promise.all([macroPromise, timeframePromise]);
+        // Fetch BTC for correlation if predicting another crypto
+        const btcPromise = (assetType === 'crypto' && asset.toUpperCase() !== 'BTC' && asset.toUpperCase() !== 'BITCOIN')
+            ? fetchCryptoData('BTC', timeframe, undefined)
+            : Promise.resolve(null);
+
+        const [macroData, marketData, btcData] = await Promise.all([macroPromise, timeframePromise, btcPromise]);
 
         if (!marketData || !macroData || marketData.close.length < 50) return { success: false, error: `Insufficient data for ${asset}.`, asset };
 
@@ -363,56 +368,81 @@ export async function generatePrediction(asset: string, assetType: 'stock' | 'cr
         // 3. Advanced Strategy Ensemble (Indicator based)
         // 4. Baseline Regression
 
-        const models = [
-            { pred: lstm.prediction, conf: lstm.confidence, weight: 0.35 },
-            { pred: gbPred.prediction, conf: gbPred.confidence, weight: 0.25 },
-            { pred: ensembleAdv.direction, conf: ensembleAdv.confidence, weight: 0.30 },
-            { pred: baseline.direction, conf: baseline.confidence, weight: 0.10 }
-        ];
+        // Regime-Specific Weighting
+        let lstmWeight = 0.35;
+        let gbWeight = 0.35;
+        let envWeight = 0.30;
 
-        // Weighted Average Direction (-1 to 1)
-        let totalDirection = 0;
-        let totalConf = 0;
-        models.forEach(m => {
-            totalDirection += m.pred * m.weight;
-            totalConf += m.conf * m.weight;
-        });
+        if (regime === 'TRENDING') {
+            gbWeight = 0.45; // GB performs better in trends
+            lstmWeight = 0.25;
+        } else if (regime === 'RANGING') {
+            lstmWeight = 0.45; // LSTM captures reversals better in ranges
+            gbWeight = 0.25;
+        }
 
-        // AGREEMENT BONUS: If all major models agree on direction, boost confidence
+        let totalDirection = (lstm.prediction * lstmWeight) + (gbPred.prediction * gbWeight) + (ensembleAdv.direction * envWeight);
+        let totalConf = (lstm.confidence * lstmWeight) + (gbPred.confidence * gbWeight) + (ensembleAdv.confidence * envWeight);
+
+        // BTC Correlation Adjustment
+        let marketAlignment = 50;
+        if (btcData && btcData.close.length > 50) {
+            const btcClose = btcData.close;
+            const btcEma12 = calculateEMA(btcClose, 12);
+            const btcEma50 = calculateEMA(btcClose, 50);
+            const btcTrend = btcEma12[btcEma12.length - 1] > btcEma50[btcEma50.length - 1] ? 1 : -1;
+            const currentDir = Math.sign(totalDirection);
+
+            if (currentDir === btcTrend) {
+                totalDirection *= 1.15; // Increased boost
+                totalConf += 8;
+                marketAlignment = 90;
+            } else if (currentDir !== 0) {
+                totalDirection *= 0.85;
+                marketAlignment = 25;
+            }
+        }
+
+        // --- RSI DIVERGENCE DETECTION ---
+        const currentRSI = rsi[rsi.length - 1];
+        const rsiLow = currentRSI < 30;
+        const rsiHigh = currentRSI > 70;
+        let divergenceBoost = 0;
+
+        const prices = close.slice(-20);
+        const priceTrend = prices[prices.length - 1] - prices[0];
+
+        // Simple heuristic: Price is down but RSI is already bouncing
+        if (priceTrend < 0 && currentRSI > 40 && currentRSI < 60) {
+            divergenceBoost = 10; // Potential hidden bullish divergence
+        }
+
+        // AGREEMENT BONUS
         const signLstm = Math.sign(lstm.prediction);
         const signGb = Math.sign(gbPred.prediction);
         const signEnv = Math.sign(ensembleAdv.direction);
 
         let agreementBonus = 0;
         if (signLstm === signGb && signGb === signEnv && signLstm !== 0) {
-            agreementBonus = 15; // 15% boost for perfect alignment
-        } else if (signLstm !== signGb && signLstm !== signEnv && signGb !== signEnv) {
-            agreementBonus = -20; // Heavy penalty for chaos/disagreement
+            agreementBonus = 20;
+        } else if (signLstm !== signGb && signLstm !== signEnv) {
+            agreementBonus = -15;
         }
 
-        const finalConfidence = Math.min(98, totalConf + agreementBonus + Math.abs(patterns.bullishScore - patterns.bearishScore) * 0.2);
+        const finalConfidence = Math.min(99, totalConf + agreementBonus + divergenceBoost + Math.abs(patterns.bullishScore - patterns.bearishScore) * 0.25);
 
-        // --- PRE-CALCULATE FLAGS ---
+        // --- FINAL PRICE & SIGNAL ---
         const isShortTerm = ['1h', '4h', '8h', '12h'].includes(timeframe);
-        const strongAgreement = (Math.abs(lstm.prediction) > 0.05 && Math.abs(ensembleAdv.direction) > 0.05);
-        const macroAligned = (totalDirection > 0 && macroTrend === 'BULLISH') || (totalDirection < 0 && macroTrend === 'BEARISH');
-        const directionMatch = Math.sign(totalDirection) === Math.sign(multiHorizon.consensus);
-
-        // VOLATILITY AS OPPORTUNITY (Short Term)
         const latestVol = volatility.length > 0 ? volatility[volatility.length - 1] : 2;
-        // For short term, HIGH volatility often means breakout, not risk.
-        // If 1h/4h and volatility is high (>5), we actually want to BOOST confidence, not damp it.
+
         const volMultiplier = isShortTerm
-            ? (latestVol > 5 ? 1.1 : 1.0) // 10% boost for high volatility breakouts
-            : (latestVol > 5 ? 0.7 : 1.0); // Classic dampening for long term stability
+            ? (latestVol > 5 ? 1.15 : 1.0)
+            : (latestVol > 5 ? 0.75 : 1.0);
 
-        // Boost confidence for short term if signals align
-        const shortTermBoost = (isShortTerm && strongAgreement) ? 20 : 0; // Increased boost
-
-        // Final Adjustment
+        const shortTermBoost = (isShortTerm && agreementBonus > 0) ? 15 : 0;
         const adjustedConfidence = Math.min(99, (finalConfidence + shortTermBoost) * volMultiplier);
 
-        const predictedChange = multiHorizon.consensus * (adjustedConfidence / 100) * (latestVol / 100);
+        const predictedChange = totalDirection * (adjustedConfidence / 100) * (latestVol / 100);
         const predictedPrice = currentPrice * (1 + predictedChange);
 
         let signal = 'HOLD';
@@ -423,12 +453,14 @@ export async function generatePrediction(asset: string, assetType: 'stock' | 'cr
         // User wants accurate trend for next ~5 units.
         // We relax the threshold for 1h/4h to allow more active trading.
 
-        const confidenceThreshold = isShortTerm ? 60 : 75; // Lowered to 60 for short term to catch more moves
+        const confidenceThreshold = isShortTerm ? 55 : 75; // Lowered to 55 for short term to catch more moves
 
         const isEligible = adjustedConfidence > confidenceThreshold;
 
         // MOMENTUM CHECK: If short term, we care more about recent momentum (RSI/MACD) than macro trend
         const momentumAligned = (ensembleAdv.direction > 0 && totalDirection > 0) || (ensembleAdv.direction < 0 && totalDirection < 0);
+
+        const macroAligned = (totalDirection > 0 && macroTrend === 'BULLISH') || (totalDirection < 0 && macroTrend === 'BEARISH');
 
         // We allow trade IF:
         // 1. Confidence is high enough
@@ -438,20 +470,21 @@ export async function generatePrediction(asset: string, assetType: 'stock' | 'cr
         const shouldTrade = isEligible && momentumAligned && (isShortTerm || macroAligned);
 
         if (shouldTrade) {
-            if (totalDirection > 0.05) { // Lowered from 0.1 to catch start of moves
+            const tradeThreshold = isShortTerm ? 0.015 : 0.03; // Catch smaller moves for scalp
+            if (totalDirection > tradeThreshold) {
                 signal = 'BUY';
-                stopLoss = currentPrice - latestATR * 1.5;
-            } else if (totalDirection < -0.05) {
+                stopLoss = currentPrice - latestATR * (isShortTerm ? 1.2 : 2.0); // Tighter stops for scalp
+            } else if (totalDirection < -tradeThreshold) {
                 signal = 'SELL';
-                stopLoss = currentPrice + latestATR * 1.5;
+                stopLoss = currentPrice + latestATR * (isShortTerm ? 1.2 : 2.0);
             }
         }
 
-        // NEXT 5 CANDLES VALIDITY
+        // NEXT 5 CANDLES VALIDITY (Refined for User: "next 4 and 8 hour")
         let validHours = 24;
-        if (timeframe === '1h') validHours = 5;
-        if (timeframe === '4h') validHours = 20; // 5 * 4h
-        if (timeframe === '8h') validHours = 40;
+        if (timeframe === '1h') validHours = 1;
+        if (timeframe === '4h') validHours = 4;
+        if (timeframe === '8h') validHours = 8;
 
         const now = new Date();
         const validTill = new Date(now.getTime() + validHours * 60 * 60 * 1000);
@@ -461,7 +494,8 @@ export async function generatePrediction(asset: string, assetType: 'stock' | 'cr
             predicted_price: predictedPrice, prediction_change_percent: ((predictedPrice - currentPrice) / currentPrice) * 100,
             signal, confidence: finalConfidence, stop_loss: stopLoss, market_regime: regime,
             prediction_time: now.toISOString(),
-            valid_till: validTill.toISOString()
+            valid_till: validTill.toISOString(),
+            market_alignment: marketAlignment
         };
     } catch (e: any) {
         console.error('[API] Prediction error:', e); return { success: false, error: e.message };

@@ -62,3 +62,24 @@ self.addEventListener('fetch', (event) => {
             })
     );
 });
+
+// --- PUSH NOTIFICATIONS ---
+self.addEventListener('push', (event) => {
+    const data = event.data ? event.data.json() : { title: 'ShursunT Alert', body: 'New market update!' };
+
+    event.waitUntil(
+        self.registration.showNotification(data.title, {
+            body: data.body,
+            icon: '/icons/icon-192x192.png',
+            badge: '/favicon.ico',
+            data: data.url
+        })
+    );
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    event.waitUntil(
+        clients.openWindow(event.notification.data || '/')
+    );
+});

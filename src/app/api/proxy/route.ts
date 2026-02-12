@@ -23,30 +23,36 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: "Missing url or endpoint parameter" }, { status: 400 });
     }
 
-    // Security: Only allow proxying to stock.indianapi.in
-    if (!targetUrl.includes("stock.indianapi.in")) {
+    // Security: Only allow proxying to known good domains
+    const allowedDomains = ["stock.indianapi.in", "api.binance.com"];
+    const isAllowed = allowedDomains.some(domain => targetUrl?.includes(domain));
+
+    if (!isAllowed) {
         return NextResponse.json({ error: "Forbidden target domain" }, { status: 403 });
     }
 
-    const API_KEY = process.env.NEXT_PUBLIC_INDIAN_API_KEY || "sk-live-ASP6f2VKjpJhs4yUrBjmRXw5kUI6gUVRlLrhmrYv";
+    const API_KEY = process.env.INDIAN_API_KEY;
 
     try {
+        console.log(`[Proxy] Fetching: ${targetUrl}`);
         const res = await fetch(targetUrl, {
             headers: {
-                "X-Api-Key": API_KEY,
+                "X-Api-Key": API_KEY || "",
                 "Content-Type": "application/json"
             },
             next: { revalidate: 300 } // Cache for 5 minutes (300s) to avoid 429 Rate Limits
         });
 
         if (!res.ok) {
-            return NextResponse.json({ error: `Target API returned ${res.status}` }, { status: res.status });
+            const errorText = await res.text();
+            console.error(`[Proxy Error] Target API returned ${res.status} for ${targetUrl}:`, errorText);
+            return NextResponse.json({ error: `Target API returned ${res.status}`, detail: errorText }, { status: res.status });
         }
 
         const data = await res.json();
         return NextResponse.json(data);
     } catch (error: any) {
-        console.error(`[Proxy Error] ${targetUrl}:`, error.message);
+        console.error(`[Proxy Exception] ${targetUrl}:`, error.message);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

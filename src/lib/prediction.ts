@@ -125,12 +125,12 @@ export async function runProPrediction(coin: string, timeframe: string = "4h", u
         ]);
 
         const klines4h = res4h.data;
-        
+
         // Validate data
         if (!klines4h || !Array.isArray(klines4h) || klines4h.length < 100) {
             return { success: false, error: "Insufficient market data for prediction" };
         }
-        
+
         const closes4h = klines4h.map((k: any) => Number(k[4]));
         const volumes4h = klines4h.map((k: any) => Number(k[5]));
         const currentPrice = closes4h[closes4h.length - 1];
@@ -153,7 +153,7 @@ export async function runProPrediction(coin: string, timeframe: string = "4h", u
         // 3. Model 1: Neural Network (Synaptic)
         let network: any;
         const saved = await loadModel(symbol);
-        
+
         if (saved && saved.model_data) {
             try {
                 network = (Architect.Perceptron as any).fromJSON(saved.model_data);
@@ -221,12 +221,19 @@ export async function runProPrediction(coin: string, timeframe: string = "4h", u
         const { signal, probability } = getEnsembleSignal(neuralTrend, statTrend, momTrend);
 
         const stopLoss = signal === "UP" ? currentPrice - atr * 2.5 : signal === "DOWN" ? currentPrice + atr * 2.5 : null;
-        const targetTime = new Date(Date.now() + 4 * 3600000);
+
+        // Refined for User: "next 4 and 8 hour"
+        let validHours = 24;
+        if (timeframe === '1h') validHours = 1;
+        if (timeframe === '4h') validHours = 4;
+        if (timeframe === '8h') validHours = 8;
+
+        const targetTime = new Date(Date.now() + validHours * 3600000);
 
         const result = {
             user_id: userId,
             coin: symbol,
-            timeframe: "4h",
+            timeframe,
             current_price: currentPrice,
             predicted_price: predPrice,
             prediction_change_percent: changePct,

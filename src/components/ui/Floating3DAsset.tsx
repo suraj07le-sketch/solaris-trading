@@ -38,7 +38,7 @@ export default function Floating3DAsset({ className }: { className?: string }) {
     const isInView = useInView(ref, { once: true, margin: "0px 0px -50px 0px" });
 
     return (
-        <div ref={ref} className={className}>
+        <div ref={ref} className={`${className} aspect-square min-h-[150px] flex items-center justify-center`}>
             {isInView && (
                 <Canvas camera={{ position: [0, 0, 3], fov: 45 }} dpr={[1, 1.5]}>
                     <ambientLight intensity={0.5} />

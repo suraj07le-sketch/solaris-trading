@@ -36,6 +36,10 @@ function calculateStdDev(prices: number[], slope: number, intercept: number) {
     return Math.sqrt(variance);
 }
 
+import { indianApiLimiter } from '@/lib/rateLimiter';
+
+// ... other imports ...
+
 export function useTrendMonitor({ symbol, isScript, enabled }: TrendMonitorProps) {
     const lastAlertTime = useRef<number>(0);
     const lastHugeAlertTime = useRef<number>(0);
@@ -52,12 +56,15 @@ export function useTrendMonitor({ symbol, isScript, enabled }: TrendMonitorProps
             try {
                 if (!isScript) {
                     // Crypto - Binance (Proxy)
+                    // Crypto APIs usually have higher limits, so we might not strictly need the limiter here, 
+                    // but if Binance proxy also hits 429, we could wrap this too. For now leaving as is.
                     const formattedSymbol = symbol.toUpperCase() + (symbol.toUpperCase().endsWith("USDT") ? "" : "USDT");
                     const res = await axios.get("/api/proxy", {
                         params: {
                             url: `https://api.binance.com/api/v3/klines?symbol=${formattedSymbol}&interval=1h&limit=500`
                         }
                     });
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     closes = res.data.map((d: any) => parseFloat(d[4]));
                     currentPrice = closes[closes.length - 1];
 
@@ -66,10 +73,12 @@ export function useTrendMonitor({ symbol, isScript, enabled }: TrendMonitorProps
                     priceChange24h = ((currentPrice - price24hAgo) / price24hAgo) * 100;
                 } else {
                     // Stock - Proxy
+                    // WRAPPED with Rate Limiter to prevent 429s on IndianAPI
                     const targetUrl = `https://stock.indianapi.in/stock?name=${symbol.toUpperCase()}`;
-                    const res = await axios.get("/api/proxy", {
+
+                    const res = await indianApiLimiter.add(() => axios.get("/api/proxy", {
                         params: { url: targetUrl }
-                    });
+                    }));
 
                     // Flexible mapping: handles both direct object and { success, data } wrap
                     const stock = res.data?.data || res.data;
@@ -188,5 +197,5 @@ export function useTrendMonitor({ symbol, isScript, enabled }: TrendMonitorProps
             Notification.requestPermission();
         }
 
-    }, [analysis, symbol]);
+    }, [analysis, symbol, isScript]);
 }

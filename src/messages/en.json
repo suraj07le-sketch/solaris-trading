@@ -1,0 +1,45 @@
+{
+    "Index": {
+        "title": "ShursunT",
+        "description": "AI-Powered Crypto & Stock Trading Intelligence"
+    },
+    "Dashboard": {
+        "title": "Market Dashboard",
+        "predictions": "AI Predictions",
+        "trending": "Trending Assets",
+        "watchlist": "Your Watchlist",
+        "overview": "Overview",
+        "liveMarket": "Live Market",
+        "allCrypto": "All Crypto",
+        "availableAssets": "Available Assets",
+        "viewMarket": "View Market",
+        "myCrypto": "My Crypto",
+        "inWatchlist": "In Watchlist",
+        "viewWatchlist": "View Watchlist",
+        "allStocks": "All Stocks",
+        "myStocks": "My Stocks",
+        "aiPredictions": "AI Predictions",
+        "viewAll": "View All",
+        "noPredictions": "No predictions available yet.",
+        "startPredicting": "Start Predicting",
+        "topWatchlist": "Top Watchlist",
+        "emptyWatchlist": "Your watchlist is empty.",
+        "exploreMarkets": "Explore Markets"
+    },
+    "Navigation": {
+        "home": "Home",
+        "dashboard": "Dashboard",
+        "market": "Market",
+        "stocks": "Stocks",
+        "crypto": "Crypto",
+        "watchlist": "Watchlist",
+        "ipo": "IPO",
+        "mutualFunds": "Mutual Funds",
+        "predictions": "Predictions",
+        "billing": "Billing",
+        "profile": "Profile",
+        "settings": "Settings",
+        "login": "Login",
+        "tagline": "AI-POWERED TRADING INTELLIGENCE"
+    }
+}

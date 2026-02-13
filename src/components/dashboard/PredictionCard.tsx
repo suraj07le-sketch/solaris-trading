@@ -78,93 +78,120 @@ export function PredictionCard({ pred, isStock, onRepredict }: PredictionCardPro
 
     // Abstracted content to reuse in both Mobile (No Tilt) and Desktop (Tilt) views
     const CardContent = ({ pred, isStock, trendColor, statusColor, isBullish, currency }: { pred: Prediction, isStock: boolean, trendColor: string, statusColor: string, isBullish: boolean, currency: string }) => (
-        <>
-            {/* Header */}
-            <div className="flex justify-between items-start mb-6 z-10 gap-2">
-                <div className="space-y-1 min-w-0 flex-1">
-                    <div className="flex items-center gap-3">
-                        <h3 className="font-black text-2xl md:text-3xl text-foreground tracking-tight truncate">
+        <div className="flex flex-col h-full relative z-10">
+            {/* Header: Symbol & Status */}
+            <div className="flex justify-between items-start mb-4">
+                <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                        <h3 className="font-black text-3xl text-foreground tracking-tight leading-none">
                             {cleanSymbol(pred.stock_name || pred.coin || pred.name)}
                         </h3>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 bg-muted/50 border border-border/50 shrink-0 ${trendColor}`}>
-                            {isBullish ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                            {pred.trend || pred.signal || "N/A"}
-                        </span>
+                        {/* Status Icon Wrapper */}
+                        <div className={`p-1.5 rounded-full border border-current opacity-20 ${trendColor}`}>
+                            {isBullish ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-[10px] md:text-xs text-muted-foreground font-mono">
-                        <span className="px-2 py-0.5 rounded-full bg-muted/50 border border-border/50 uppercase">
+                    {/* Timeframe & Action Badges */}
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-muted/40 text-muted-foreground border border-border/30">
                             {pred.timeframe || "4H"}
                         </span>
-                        <span>CONFIDENCE: <span className="text-foreground font-bold">{Math.round(Number(pred.confidence || pred.accuracy_percent || 0))}%</span></span>
-
-                        {(pred as any).market_alignment !== undefined && (
-                            <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full border ${(pred as any).market_alignment > 70 ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'}`}>
-                                <Sparkles size={10} />
-                                ALIGNMENT: {(pred as any).market_alignment}%
-                            </span>
-                        )}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase flex items-center gap-1 border ${isBullish ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-red-500/10 text-red-500 border-red-500/20'}`}>
+                            {pred.trend || pred.signal || "HOLD"}
+                        </span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                {/* Action Buttons */}
+                <div className="flex items-center gap-1.5">
                     <button
                         onClick={(e) => {
                             e.stopPropagation();
                             setMonitorEnabled(!monitorEnabled);
                             toast.info(monitorEnabled ? "Trend alerts disabled" : "Trend alerts enabled (1h frame)");
                         }}
-                        className={`p-1.5 rounded-xl border transition-all ${monitorEnabled ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' : 'bg-background/50 text-muted-foreground border-transparent hover:bg-muted/50'}`}
-                        aria-label={monitorEnabled ? "Disable Trend Alerts" : "Enable Trend Alerts"}
-                        title={monitorEnabled ? "Disable Trend Alerts" : "Enable Trend Alerts"}
+                        className={`p-2 rounded-xl transition-all ${monitorEnabled ? 'text-blue-400 bg-blue-500/10' : 'text-muted-foreground/50 hover:text-foreground hover:bg-muted/50'}`}
                     >
-                        {monitorEnabled ? <Bell size={18} /> : <BellOff size={18} />}
+                        {monitorEnabled ? <Bell size={16} /> : <BellOff size={16} />}
                     </button>
 
                     <button
                         onClick={(e) => {
-                            e.stopPropagation(); // Prevent card click if any
+                            e.stopPropagation();
                             onRepredict?.();
                         }}
-                        className={`group/brain relative flex items-center justify-center p-1.5 rounded-xl border bg-background/50 backdrop-blur-md shadow-[0_0_15px_-3px] transition-all duration-300 cursor-pointer hover:scale-110 active:scale-95 ${isBullish ? 'border-green-500/30 shadow-green-500/30 hover:shadow-green-500/50' : 'border-red-500/30 shadow-red-500/30 hover:shadow-red-500/50'}`}
-                        aria-label="Regenerate Prediction"
-                        title="Regenerate Prediction"
+                        className={`p-2 rounded-xl transition-all text-muted-foreground/50 hover:text-foreground hover:bg-muted/50`}
                     >
-                        <BrainCircuit className={`w-4 h-4 md:w-5 md:h-5 transition-transform duration-700 group-hover/brain:rotate-180 ${isBullish ? 'text-green-500' : 'text-red-500'}`} />
-                        <div className={`absolute inset-0 rounded-xl opacity-20 blur-[8px] group-hover/brain:opacity-40 transition-opacity ${isBullish ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <BrainCircuit size={16} />
                     </button>
 
-                    <div className={`p-1.5 rounded-xl border border-transparent ${statusColor}`}>
-                        {pred.status === 'completed' ? <CheckCircle size={18} /> : <Clock size={18} />}
+                    <div className={`p-2 rounded-xl ${statusColor}`}>
+                        {pred.status === 'completed' ? <CheckCircle size={16} /> : <Clock size={16} />}
                     </div>
                 </div>
             </div>
 
-            {/* Prices */}
-            <div className="mt-auto space-y-4 z-10">
-                <div className="grid grid-cols-2 gap-px bg-border/20 rounded-2xl overflow-hidden border border-border/20">
-                    <div className="bg-muted/30 p-4">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Current</div>
-                        <div className="font-mono text-lg text-foreground font-medium">
-                            {currency}{Number(pred.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </div>
-                    </div>
-                    <div className="bg-muted/30 p-4 text-right">
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Target</div>
-                        <div className={`font-mono text-lg font-bold ${trendColor}`}>
-                            {currency}{Number(pred.predicted_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {/* Metrics Row: Confidence & Alignment */}
+            <div className="flex items-center gap-3 mb-6">
+                <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider mb-0.5">Confidence</span>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-lg font-bold text-foreground">{Math.round(Number(pred.confidence || pred.accuracy_percent || 0))}%</span>
+                        <div className="h-1.5 w-8 rounded-full bg-muted overflow-hidden relative top-[-2px]">
+                            <div
+                                className={`h-full rounded-full ${Number(pred.confidence) > 75 ? 'bg-green-500' : 'bg-yellow-500'}`}
+                                style={{ width: `${Math.round(Number(pred.confidence || 0))}%` }}
+                            />
                         </div>
                     </div>
                 </div>
 
+                <div className="w-px h-8 bg-border/40" />
+
+                {(pred as any).market_alignment !== undefined && (
+                    <div className="flex flex-col">
+                        <span className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                            <Sparkles size={10} className="text-yellow-500" /> Alignment
+                        </span>
+                        <div className="flex items-baseline gap-1">
+                            <span className={`text-lg font-bold ${(pred as any).market_alignment > 70 ? 'text-green-500' : 'text-yellow-500'}`}>
+                                {(pred as any).market_alignment}%
+                            </span>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Prices Section */}
+            <div className="mt-auto">
+                <div className="relative p-0.5 rounded-2xl bg-gradient-to-b from-border/10 to-transparent">
+                    <div className="flex rounded-[14px] bg-card/50 backdrop-blur-sm border border-white/5 divide-x divide-white/5 overflow-hidden">
+                        <div className="flex-1 p-3 flex flex-col items-center justify-center bg-white/[0.02]">
+                            <span className="text-[9px] uppercase tracking-widest text-muted-foreground mb-1">Entry</span>
+                            <span className="font-mono text-base text-foreground/90">
+                                {currency}{Number(pred.current_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                        <div className="flex-1 p-3 flex flex-col items-center justify-center relative overflow-hidden">
+                            <div className={`absolute inset-0 opacity-10 ${isBullish ? 'bg-green-500' : 'bg-red-500'}`} />
+                            <span className={`text-[9px] uppercase tracking-widest font-bold mb-1 ${isBullish ? 'text-green-500' : 'text-red-500'}`}>Target</span>
+                            <span className={`font-mono text-xl font-bold ${isBullish ? 'text-green-400' : 'text-red-400'}`}>
+                                {currency}{Number(pred.predicted_price || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Footer: Date */}
                 <div className="flex justify-between items-center px-2">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">Target Date</div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground/70">Target Time</div>
                     <div className="text-xs font-mono text-muted-foreground">
                         {safeFormatDate(pred.predicted_time || pred.prediction_valid_till_ist)}
                     </div>
                 </div>
             </div>
-        </>
+        </div>
     );
 
     const { isMobile } = usePerformanceTier();

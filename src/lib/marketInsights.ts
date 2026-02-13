@@ -4,6 +4,8 @@
  * Routes through /api/proxy to avoid CORS issues
  */
 
+import { indianApiLimiter } from "./rateLimiter";
+
 export interface StockInsight {
     symbol: string;
     stock_name: string;
@@ -23,10 +25,10 @@ const buildProxyUrl = (endpoint: string, params?: Record<string, string>) => {
 
 export const fetchTrendingStocks = async () => {
     try {
-        const res = await fetch(buildProxyUrl("trending_stocks"));
+        const res = await indianApiLimiter.add(() => fetch(buildProxyUrl("trending_stocks")));
         if (!res.ok) throw new Error("API Offline");
         return await res.json();
-    } catch (err) {
+    } catch {
         console.warn("[MarketInsights] Trending fetch failed, using fallback");
         return [
             { symbol: "TATAELXSI", stock_name: "Tata Elxsi", current_price: 7850.45, change_percent: 2.34 },
@@ -38,16 +40,18 @@ export const fetchTrendingStocks = async () => {
     }
 };
 
-export const fetchNSEMostActive = async () => {
+export const fetchNSEMostActive = async (): Promise<StockInsight[]> => {
     try {
         // Correct endpoint as per probe-nse.js: NSE_most_active
-        const res = await fetch(buildProxyUrl("NSE_most_active"));
+        const res = await indianApiLimiter.add(() => fetch(buildProxyUrl("NSE_most_active")));
         if (!res.ok) throw new Error("API Path Error");
         const data = await res.json();
 
-        const list = Array.isArray(data) ? data : (data.data || []);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const list = Array.isArray(data) ? data : ((data as any).data || []);
         if (!Array.isArray(list)) return [];
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return list.map((item: any) => ({
             symbol: item.ticker ? item.ticker.replace('.NS', '') : item.symbol,
             stock_name: item.company || item.stock_name || item.name,
@@ -55,8 +59,8 @@ export const fetchNSEMostActive = async () => {
             change_percent: item.percent_change || item.change_percent || item.pChange || 0,
             status: (item.percent_change || item.change_percent || item.pChange || 0) >= 0 ? "UP" : "DOWN"
         }));
-    } catch (err: any) {
-        if (err.message?.includes("429")) {
+    } catch (err: unknown) {
+        if (err instanceof Error && err.message?.includes("429")) {
             console.warn("[MarketInsights] Rate Limit Exceeded (429) for NSE Most Active. Cooling down...");
         } else {
             console.warn("[MarketInsights] NSE Most Active fetch failed", err);
@@ -68,10 +72,10 @@ export const fetchNSEMostActive = async () => {
 export const fetch52WeekHighLow = async () => {
     try {
         // Common pattern for this API
-        const res = await fetch(buildProxyUrl("52_week_high_low"));
+        const res = await indianApiLimiter.add(() => fetch(buildProxyUrl("52_week_high_low")));
         if (!res.ok) throw new Error("API Path Error");
         return await res.json();
-    } catch (err) {
+    } catch {
         console.warn("[MarketInsights] 52 Week High/Low fetch failed");
         return { high: [], low: [] };
     }
@@ -82,7 +86,7 @@ export const searchMutualFunds = async (query: string) => {
         const res = await fetch(buildProxyUrl("mutual_fund_search", { query }));
         if (!res.ok) return [];
         return await res.json();
-    } catch (err) { return []; }
+    } catch { return []; }
 };
 
 export const getMutualFundDetails = async (fundId: string) => {
@@ -90,6 +94,5 @@ export const getMutualFundDetails = async (fundId: string) => {
         const res = await fetch(buildProxyUrl("mutual_funds_details", { id: fundId }));
         if (!res.ok) return null;
         return await res.json();
-    } catch (err) { return null; }
+    } catch { return null; }
 };
-

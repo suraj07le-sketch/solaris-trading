@@ -494,7 +494,7 @@ export async function generatePrediction(asset: string, assetType: 'stock' | 'cr
             predicted_price: predictedPrice, prediction_change_percent: ((predictedPrice - currentPrice) / currentPrice) * 100,
             signal, confidence: finalConfidence, stop_loss: stopLoss, market_regime: regime,
             prediction_time: now.toISOString(),
-            valid_till: validTill.toISOString(),
+            predicted_time: validTill.toISOString(), // Mapped to predicted_time for frontend compatibility
             market_alignment: marketAlignment
         };
     } catch (e: any) {
@@ -539,7 +539,7 @@ export async function POST(req: Request) {
                     predicted_price: result.predicted_price,
                     prediction_change_percent: result.prediction_change_percent,
                     stop_loss_price: result.stop_loss,
-                    prediction_valid_till_ist: result.valid_till,
+                    prediction_valid_till_ist: result.predicted_time, // Use new field name
                     created_at: result.prediction_time
                 };
 
